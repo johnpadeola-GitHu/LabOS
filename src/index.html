@@ -125,7 +125,9 @@
   -->
   <script>
     /* Populate window.LABOS_CONFIG here at deploy time to enable Supabase. */
-    window.LABOS_CONFIG = window.LABOS_CONFIG || {};
+    window.LABOS_CONFIG = {
+    supabaseUrl:     'https://cgwxdjpgggpmanhjecpm.supabase.co',
+    supabaseAnonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnd3hkanBnZ2dwbWFuaGplY3BtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA2NzA0MTcsImV4cCI6MjA5NjI0NjQxN30.Qc9hz8LkkVgCuZ25oOCJuTamAC9aCK8hM57DEG-k2mk'};
   </script>
 
   <!-- Supabase adapter (ES module). No-op unless LABOS_CONFIG is set above. -->
