@@ -1,0 +1,21 @@
+# Cloudflare Pages — wrangler configuration
+# For CLI deploys:  npx wrangler pages deploy dist
+#
+# Most teams deploy LabOS through the Cloudflare dashboard (Git integration),
+# in which case the dashboard build settings below are what matter and this
+# file is optional. It is included for CLI/CI deploys.
+
+name = "labos-frontend"
+pages_build_output_dir = "dist"
+compatibility_date = "2025-01-01"
+
+# Build is run by `npm run build` (see package.json), which:
+#   1. prebuild → minifies the ordered-script bundle into public/labos.bundle.js
+#   2. vite build → emits the optimised site into dist/
+#
+# Dashboard build settings (Pages → Settings → Builds & deployments):
+#   Framework preset:   None / Vite
+#   Build command:      npm run build
+#   Build output dir:   dist
+#   Root directory:     labos-app           (if the repo root is one level up)
+#   Node version:       22                  (also pinned in .nvmrc)
