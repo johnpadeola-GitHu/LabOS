@@ -1,0 +1,20 @@
+# Cloudflare Pages — HTTP headers
+# Applied to the deployed site. Tightens security and tunes caching.
+
+/*
+  X-Frame-Options: SAMEORIGIN
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(), microphone=(), camera=()
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+
+# Long-cache the hashed, immutable build assets.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# The app bundle is regenerated each build; let the browser revalidate.
+/labos.bundle.js
+  Cache-Control: public, max-age=0, must-revalidate
+
+/supabase-adapter.js
+  Cache-Control: public, max-age=0, must-revalidate
