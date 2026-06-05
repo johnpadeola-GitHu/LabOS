@@ -12108,6 +12108,36 @@ function openModal(type){
         <button class="btn primary" onclick="submitInviteStaff()">Send invites</button>
       </div>
     `;
+  } else if(type==='real-signin'){
+    html = `
+      <div class="modal-header">
+        <div>
+          <div class="modal-title">Sign in to LabOS</div>
+          <div class="muted-sm">Enter your account credentials</div>
+        </div>
+        <button class="modal-close" onclick="closeModal()" aria-label="Close">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="field" style="grid-column:span 2">
+            <label>Email<span class="req">*</span></label>
+            <input id="signin-email" type="email" class="input" placeholder="your@email.com" autocomplete="email">
+          </div>
+          <div class="field" style="grid-column:span 2">
+            <label>Password<span class="req">*</span></label>
+            <input id="signin-password" type="password" class="input" placeholder="Your password" autocomplete="current-password">
+          </div>
+        </div>
+        <div id="signin-error" class="alert-banner danger" style="display:none;margin-top:10px">
+          <span class="icon">⚠</span>
+          <div id="signin-error-msg">Invalid email or password.</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="closeModal()">Cancel</button>
+        <button class="btn primary" id="signin-submit-btn" onclick="submitRealSignIn()">Sign in</button>
+      </div>
+    `;
   } else if(type==='add-staff'){
     const branches = (APP_STATE.centres || []).map(c => c.name).slice(0, 8);
     html = `
@@ -17247,6 +17277,65 @@ function onbContactProvisioning(){
 // deployment this button would lead to a server-authenticated admin login;
 // here it is an explicit, clearly-labelled door (the frontend cannot enforce
 // real auth on its own).
+// Real Supabase Auth sign-in (shown when LABOS_CONFIG is set).
+async function submitRealSignIn(){
+  const email    = $v('signin-email')    || '';
+  const password = $v('signin-password') || '';
+  const errDiv   = document.getElementById('signin-error');
+  const errMsg   = document.getElementById('signin-error-msg');
+  const btn      = document.getElementById('signin-submit-btn');
+
+  if(!email || !password){
+    if(errDiv)  errDiv.style.display = 'flex';
+    if(errMsg)  errMsg.textContent = 'Please enter your email and password.';
+    return;
+  }
+
+  // Show loading state
+  if(btn){ btn.textContent = 'Signing in…'; btn.disabled = true; }
+  if(errDiv) errDiv.style.display = 'none';
+
+  try {
+    const res = await LabOSApi.login(email, password);
+
+    if(!res.ok){
+      if(btn){ btn.textContent = 'Sign in'; btn.disabled = false; }
+      if(errDiv) errDiv.style.display = 'flex';
+      if(errMsg) errMsg.textContent = res.error || 'Invalid email or password.';
+      return;
+    }
+
+    const profile = res.profile;
+
+    // Route based on role
+    const isPlat = profile && profile.is_platform;
+    const role   = profile && profile.role ? profile.role : 'TENANT_ADMIN';
+    const tenantId = profile && profile.tenant_id;
+
+    closeModal();
+
+    S().userName    = (profile && profile.full_name) || email;
+    S().userRole    = role;
+    S().isDemoSession = false;
+
+    if(isPlat){
+      S().isPlatformAdmin = true;
+      enterPlatformMode();
+      toast('Welcome back. Signed in as platform administrator.', {type:'success', duration:3500});
+    } else if(tenantId){
+      enterTenantMode(tenantId);
+      toast('Welcome back, ' + S().userName + '.', {type:'success', duration:3500});
+    } else {
+      toast('Signed in but no tenant assigned. Contact your administrator.', {type:'warn', duration:6000});
+    }
+
+  } catch(err){
+    if(btn){ btn.textContent = 'Sign in'; btn.disabled = false; }
+    if(errDiv) errDiv.style.display = 'flex';
+    if(errMsg) errMsg.textContent = 'Could not connect. Check your internet connection.';
+  }
+}
+
 function onbReferralSignIn(){
   // In production: POST /api/referral/authenticate with NPI/MDCN number + OTP.
   // In demo: enter as Dr. Adekunle Smith who has referred several patients.
@@ -17257,6 +17346,12 @@ function onbReferralSignIn(){
 }
 
 function onbAdminSignIn(){
+  // When Supabase is configured, show the real sign-in form.
+  if(typeof LabOSApi !== 'undefined' && LabOSApi.isEnabled && LabOSApi.isEnabled()){
+    openModal('real-signin');
+    return;
+  }
+  // Demo mode — drop straight into platform view.
   S().isPlatformAdmin = true;
   S().userName = S().userName && S().userName !== 'Demo User' ? S().userName : 'Platform Admin';
   S().isDemoSession = false;

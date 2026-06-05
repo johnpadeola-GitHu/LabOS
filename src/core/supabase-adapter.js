@@ -93,8 +93,10 @@
       const { data, error } = await c.auth.signInWithPassword({ email, password });
       if (error) return { ok: false, error: error.message };
       // Load the app_users profile (tenant + role) for the session.
-      const prof = await c.from('app_users').select('*').eq('id', data.user.id).single();
-      return { ok: true, user: data.user, profile: prof.data };
+      const { data: profile } = await c.from('app_users')
+        .select('*').eq('id', data.user.id).single();
+      if (profile && profile.tenant_id) cfg.tenantId = profile.tenant_id;
+      return { ok: true, user: data.user, profile };
     },
     async logout() { const c = await sb(); await c.auth.signOut(); },
     async isAuthed() {
@@ -103,20 +105,32 @@
       return !!(data && data.session);
     },
     getToken() {
-      // supabase-js manages tokens internally; expose current access token.
       try { return client?.auth?.getSession?.() ? null : null; } catch (e) { return null; }
     },
 
     // ---- Invite-only activation ----
-    // The platform provisions a tenant and emails an invite; the user sets a
-    // password via Supabase Auth. The activation code is verified by an Edge
-    // Function which attaches tenant_id + role to the user's metadata.
+    // Calls the `activate` Edge Function which validates the code, creates the
+    // Supabase Auth user, links to the tenant, and returns a live session.
     async validateActivation(code, email, password) {
       const c = await sb();
       const { data, error } = await c.functions.invoke('activate', {
         body: { code, email, password }
       });
-      if (error) return { ok: false, error: error.message };
+      if (error) {
+        console.error('[LabOS] activate error:', error);
+        return { ok: false, error: 'activation_error' };
+      }
+      if (!data || !data.ok) {
+        return { ok: false, error: (data && data.error) || 'activation_failed' };
+      }
+      // Restore the session so the user is immediately signed in.
+      if (data.session) {
+        await c.auth.setSession({
+          access_token:  data.session.access_token,
+          refresh_token: data.session.refresh_token
+        });
+        cfg.tenantId = data.tenant.id;
+      }
       return { ok: true, tenant: data.tenant, user: data.user };
     },
 
