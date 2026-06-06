@@ -921,6 +921,8 @@ describe('Housekeeping — previously-stub buttons now functional', () => {
       'can','canAccessRoute','requirePermission','rbacNormaliseRole','rbacPermsForRole',
       // help nav + modal a11y
       'helpRequestArticle','helpGoToArticle','trapFocusInModal','releaseFocusTrap','saveAsDraft',
+      // auth
+      'submitRealSignIn',
       // notification panel
       'toggleNotifPanel','closeNotifPanel','renderNotifPanel','markNotifRead','markAllNotifsRead','refreshNotifBadge',
       // chart / legacy

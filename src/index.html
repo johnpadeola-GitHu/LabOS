@@ -114,18 +114,16 @@
   <script src="/labos.bundle.js"></script>
 
   <!--
-    Backend configuration. To connect a Supabase backend, set these values
-    (e.g. from your environment at deploy time). Leave them empty/commented to
-    run in local demo mode — the app works fully offline either way.
-
-    window.LABOS_CONFIG = {
-      supabaseUrl:     'https://YOUR_PROJECT.supabase.co',
-      supabaseAnonKey: 'YOUR_PUBLIC_ANON_KEY'
-    };
+    Supabase credentials are injected at build time from environment variables.
+    Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Cloudflare Pages
+    (Settings → Environment Variables) — never commit real keys to GitHub.
+    When the variables are not set the app runs in local demo mode.
   -->
   <script>
-    /* Populate window.LABOS_CONFIG here at deploy time to enable Supabase. */
-    window.LABOS_CONFIG = window.LABOS_CONFIG || {};
+    window.LABOS_CONFIG = {
+      supabaseUrl:     __SUPABASE_URL__,
+      supabaseAnonKey: __SUPABASE_ANON_KEY__
+    };
   </script>
 
   <!-- Supabase adapter (ES module). No-op unless LABOS_CONFIG is set above. -->
