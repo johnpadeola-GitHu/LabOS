@@ -7480,8 +7480,8 @@ const SECTION_ICONS = {
   results: '<polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
   // Histopathology — Option A: Microscope
   histopath: '<path d="M6 18h8"/><path d="M3 22h18"/><path d="M14 22a7 7 0 1 0 0-14h-1"/><path d="M9 14h2"/><path d="M9 12a2 2 0 0 1-2-2V6h6v4a2 2 0 0 1-2 2Z"/><path d="M12 6V3a1 1 0 0 0-1-1H9a1 1 0 0 0-1 1v3"/>',
-  // Molecular & Referrals — Option C: DNA fragments with connections
-  molecular: '<circle cx="5" cy="6" r="2"/><circle cx="5" cy="18" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="19" cy="18" r="2"/><line x1="7" y1="6" x2="17" y2="6" stroke-dasharray="2 2"/><line x1="7" y1="18" x2="17" y2="18" stroke-dasharray="2 2"/><line x1="5" y1="8" x2="5" y2="16"/><line x1="19" y1="8" x2="19" y2="16"/>',
+  // Molecular & Referrals — Option D: network share (three connected nodes — lab + referral partners)
+  molecular: '<circle cx="12" cy="5" r="3"/><circle cx="5" cy="19" r="3"/><circle cx="19" cy="19" r="3"/><line x1="12" y1="8" x2="5" y2="16"/><line x1="12" y1="8" x2="19" y2="16"/><line x1="8" y1="19" x2="16" y2="19"/>',
   // DNA & Genetics — Option A: Helix curves
   dna: '<path d="M5 2c10 4 10 14 18 18"/><path d="M19 2C9 4 9 14 1 18"/><line x1="6" y1="6" x2="18" y2="6"/><line x1="6" y1="14" x2="18" y2="14"/><line x1="8" y1="10" x2="16" y2="10"/>',
   // Imaging & Diagnostics — Option C: Scanner with crosshair
@@ -15511,15 +15511,21 @@ function renderShell(){
   }
 
   const pill = document.getElementById('tenant-pill');
-  if(sess.mode==='platform'){
-    pill.className = 'tenant-pill platform';
-    document.getElementById('tenant-pill-mark').textContent = 'PA';
-    document.getElementById('tenant-pill-name').textContent = 'Platform mode';
-  } else if(t){
-    pill.className = 'tenant-pill';
-    document.getElementById('tenant-pill-mark').textContent = t.logoMark;
-    document.getElementById('tenant-pill-mark').style.background = t.primaryColour;
-    document.getElementById('tenant-pill-name').textContent = t.name;
+  if(pill){
+    if(sess.mode==='platform'){
+      pill.className = 'tenant-pill platform';
+      const mark = document.getElementById('tenant-pill-mark');
+      const name = document.getElementById('tenant-pill-name');
+      if(mark) mark.textContent = 'AX';
+      if(name) name.textContent = 'AgoroX Technologies';
+    } else if(t){
+      pill.className = 'tenant-pill';
+      const mark = document.getElementById('tenant-pill-mark');
+      const name = document.getElementById('tenant-pill-name');
+      if(mark) mark.textContent = t.logoMark;
+      if(mark) mark.style.background = t.primaryColour;
+      if(name) name.textContent = t.name;
+    }
   }
 
   const groups = NAV_GROUPS[sess.mode==='platform'?'platform':'tenant'];
@@ -15569,11 +15575,6 @@ function renderShell(){
         ? `<span class="switch-link" onclick="enterTenantMode('${sess.activeTenantId||'tnt_vitalis'}')">Switch to tenant view ↗</span>`
         : `<span class="switch-link" onclick="enterPlatformMode()">Switch to platform mode ↗</span>`)
     : '';
-  const currentLang = window.CURRENT_LANG || 'en';
-  const langs = [{code:'en',label:'EN'},{code:'ha',label:'HA'},{code:'yo',label:'YO'},{code:'ig',label:'IG'}];
-  const langBtns = langs.map(l =>
-    `<button class="lang-btn${l.code===currentLang?' active':''}" onclick="setLanguage('${l.code}')" aria-label="Switch to ${l.code==='en'?'English':l.code==='ha'?'Hausa':l.code==='yo'?'Yoruba':'Igbo'}" aria-pressed="${l.code===currentLang}">${l.label}</button>`
-  ).join('');
 
   document.getElementById('user-card').innerHTML = `
     <div class="avatar" role="img" aria-label="${esc(sess.userName)} avatar">${initials}</div>
@@ -15581,7 +15582,6 @@ function renderShell(){
       <div class="name">${esc(sess.userName)}</div>
       <div class="role">${sess.mode==='platform'?'Platform Super Admin':esc(sess.userRole.replace(/_/g,' ').toLowerCase().replace(/\b\w/g,m=>m.toUpperCase()))}</div>
       ${switchLink}
-      <div class="lang-switcher" role="group" aria-label="Language">${langBtns}</div>
     </div>
   `;
 
