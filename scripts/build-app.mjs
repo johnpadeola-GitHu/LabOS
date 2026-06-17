@@ -27,6 +27,7 @@ const LAYERS = [
   'src/core/rbac.js',
   'src/core/gateway-parsers.js',
   'src/core/instrument-gateway.js',
+  'src/core/supabase-adapter.js',
   'src/app/app.views.js',
   'src/core/api.js',
   'src/core/data-mode.js',
@@ -78,17 +79,3 @@ try {
 } catch {}
 
 console.log(`[build-app] wrote public/labos.bundle.js (minify=${minify})`);
-
-// The Supabase adapter is loaded as a standalone ES module (not part of the
-// classic bundle, because it uses dynamic import() of the supabase-js CDN).
-// Copy it verbatim from src/core into public/ so Vite serves and ships it.
-try {
-  const { copyFileSync } = await import('node:fs');
-  copyFileSync(
-    resolve(root, 'src/core/supabase-adapter.js'),
-    resolve(outDir, 'supabase-adapter.js')
-  );
-  console.log('[build-app] copied supabase-adapter.js → public/');
-} catch (e) {
-  console.warn('[build-app] could not copy supabase-adapter.js:', e.message);
-}
