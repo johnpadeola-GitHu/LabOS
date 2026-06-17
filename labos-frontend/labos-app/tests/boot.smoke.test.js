@@ -122,6 +122,6 @@ describe('LabOS built bundle — boot smoke test', () => {
     expect(nav).toBeTruthy();
     expect(nav.innerHTML.length).toBeGreaterThan(100);
     // Collapsible domain groups should be present.
-    expect(win.document.querySelectorAll('.nav-group[data-group]').length).toBe(7);
+    expect(win.document.querySelectorAll('.nav-group[data-group]').length).toBe(8);
   });
 });

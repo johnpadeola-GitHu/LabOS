@@ -5,6 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=5.0" />
   <meta name="theme-color" content="#2F4A6D" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#1A2E48" media="(prefers-color-scheme: dark)">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="LabOS">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="LabOS">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -85,19 +91,11 @@
         <input type="text" placeholder="Search patients, requests, pages…  (⌘K)" readonly style="cursor:pointer" />
       </div>
       <div class="top-actions">
-        <div class="tenant-pill" id="tenant-pill" onclick="openTenantSwitcher()" title="Active tenant">
-          <span class="tenant-pill-mark" id="tenant-pill-mark">VD</span>
-          <span class="tenant-pill-name" id="tenant-pill-name">Vitalis Diagnostics</span>
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-        </div>
         <span class="offline-pill"><span class="pulse"></span>Online · Synced</span>
         <span class="licence-pill" id="licence-pill" onclick="navigate('devices')" title="Licence status — click for devices"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Verifying…</span>
         <button class="icon-btn" id="notif-bell-btn" title="Notifications" aria-label="Notifications" aria-haspopup="true" onclick="toggleNotifPanel()">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
           <span class="dot" id="notif-dot"></span>
-        </button>
-        <button class="icon-btn" title="Help &amp; Documentation" onclick="navigate('help')">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
         </button>
       </div>
     </header>
@@ -114,18 +112,16 @@
   <script src="/labos.bundle.js"></script>
 
   <!--
-    Backend configuration. To connect a Supabase backend, set these values
-    (e.g. from your environment at deploy time). Leave them empty/commented to
-    run in local demo mode — the app works fully offline either way.
-
-    window.LABOS_CONFIG = {
-      supabaseUrl:     'https://YOUR_PROJECT.supabase.co',
-      supabaseAnonKey: 'YOUR_PUBLIC_ANON_KEY'
-    };
+    Supabase credentials are injected at build time from environment variables.
+    Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Cloudflare Pages
+    (Settings → Environment Variables) — never commit real keys to GitHub.
+    When the variables are not set the app runs in local demo mode.
   -->
   <script>
-    /* Populate window.LABOS_CONFIG here at deploy time to enable Supabase. */
-    window.LABOS_CONFIG = window.LABOS_CONFIG || {};
+    window.LABOS_CONFIG = {
+      supabaseUrl:     __SUPABASE_URL__,
+      supabaseAnonKey: __SUPABASE_ANON_KEY__
+    };
   </script>
 
   <!-- Supabase adapter (ES module). No-op unless LABOS_CONFIG is set above. -->

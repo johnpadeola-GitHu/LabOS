@@ -156,7 +156,14 @@ window.RBAC_ROUTE_PERMISSIONS = {
   security:        'settings.manage',
   backup:          'settings.manage',
   subscription:    'subscription.manage',
-  privacy:         'privacy.manage'
+  privacy:         'privacy.manage',
+  // Instrument Gateway — admin only
+  gatewayDashboard: 'settings.manage',
+  analyzers:        'settings.manage',
+  testMapping:      'settings.manage',
+  sampleMatching:   'results.validate',
+  resultValidation: 'results.validate',
+  gatewayLogs:      'audit.view'
 };
 
 /* ── Normalise free-text role labels to canonical codes ─────────
