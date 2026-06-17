@@ -17989,9 +17989,19 @@ function renderOnboarding(){
         <div class="onb-divider"><span>or</span></div>
         <button class="ghost" onclick="onbExploreDemo()" style="width:100%">Explore the interactive demo</button>
         <div class="muted-sm" style="text-align:center;margin-top:6px">No code needed. Loads a sample laboratory with demo data you can explore freely.</div>
-        <button class="ghost" onclick="onbAdminSignIn()" style="width:100%;margin-top:10px">Sign in as platform administrator</button>
-        <button class="ghost" onclick="onbReferralSignIn()" style="width:100%;margin-top:6px;font-size:12px;opacity:0.75">Referring clinician? Access your results portal →</button>
-        <div class="muted-sm" style="text-align:center;margin-top:6px">For LabOS operators. Provision new laboratories and issue activation codes. <span style="color:var(--ink-faint)">(Real deployments authenticate this server-side.)</span></div>
+
+        <div class="onb-divider"><span>or sign in</span></div>
+        <div id="onb-signin-form" style="margin-top:4px">
+          <div class="field" style="margin-bottom:8px">
+            <input id="onb-email" type="email" class="input" placeholder="Email address" autocomplete="email" style="width:100%">
+          </div>
+          <div class="field" style="margin-bottom:10px">
+            <input id="onb-password" type="password" class="input" placeholder="Password" autocomplete="current-password" style="width:100%">
+          </div>
+          <div id="onb-signin-error" style="display:none;color:#9A1F1F;font-size:12px;margin-bottom:8px;padding:8px 12px;background:#FFF0F0;border-radius:6px;border-left:3px solid #9A1F1F"></div>
+          <button class="btn primary" id="onb-signin-btn" onclick="onbSignInDirect()" style="width:100%">Sign in →</button>
+        </div>
+        <button class="ghost" onclick="onbReferralSignIn()" style="width:100%;margin-top:10px;font-size:12px;opacity:0.75">Referring clinician? Access your results portal →</button>
       </div>`;
   } else if(s===2){
     body = `
@@ -18493,18 +18503,125 @@ function onbReferralSignIn(){
   enterReferralMode('Dr. Adekunle Smith', 'DEMO-REFERRAL-TOKEN');
 }
 
-function onbAdminSignIn(){
-  // Check LABOS_CONFIG directly — it is injected into index.html at build
-  // time and is available immediately, unlike the ES module adapter which
-  // loads asynchronously and may not yet have overwritten window.LabOSApi.
-  const cfg = window.LABOS_CONFIG || {};
-  const hasBackend = !!(cfg.supabaseUrl && cfg.supabaseAnonKey);
+// Direct sign-in using Supabase Auth REST API — no SDK, no modules.
+// Works the moment the page loads because it is just a fetch() call.
+async function onbSignInDirect(){
+  const email    = (document.getElementById('onb-email')    || {}).value || '';
+  const password = (document.getElementById('onb-password') || {}).value || '';
+  const errDiv   = document.getElementById('onb-signin-error');
+  const btn      = document.getElementById('onb-signin-btn');
 
-  if(hasBackend){
-    openModal('real-signin');
+  if(!email || !password){
+    if(errDiv){ errDiv.style.display='block'; errDiv.textContent='Please enter your email and password.'; }
     return;
   }
-  // Demo mode — no backend configured, go straight in.
+
+  const cfg = window.LABOS_CONFIG || {};
+  if(!cfg.supabaseUrl || !cfg.supabaseAnonKey){
+    // No backend — go straight to demo platform view
+    S().isPlatformAdmin = true;
+    S().userName = 'Platform Admin';
+    S().isDemoSession = false;
+    enterPlatformMode();
+    return;
+  }
+
+  if(btn){ btn.textContent = 'Signing in…'; btn.disabled = true; }
+  if(errDiv) errDiv.style.display = 'none';
+
+  try {
+    // Step 1: Authenticate with Supabase Auth REST API directly
+    const authRes = await fetch(cfg.supabaseUrl + '/auth/v1/token?grant_type=password', {
+      method: 'POST',
+      headers: {
+        'Content-Type':  'application/json',
+        'apikey':        cfg.supabaseAnonKey,
+        'Authorization': 'Bearer ' + cfg.supabaseAnonKey
+      },
+      body: JSON.stringify({ email: email, password: password })
+    });
+
+    const authData = await authRes.json();
+
+    if(!authRes.ok || authData.error){
+      if(btn){ btn.textContent = 'Sign in →'; btn.disabled = false; }
+      if(errDiv){
+        errDiv.style.display = 'block';
+        errDiv.textContent = authData.error_description || authData.error || 'Invalid email or password.';
+      }
+      return;
+    }
+
+    const accessToken  = authData.access_token;
+    const refreshToken = authData.refresh_token;
+    const userId       = authData.user && authData.user.id;
+
+    // Step 2: Load the user's profile (tenant + role) from app_users
+    const profRes = await fetch(
+      cfg.supabaseUrl + '/rest/v1/app_users?id=eq.' + userId + '&select=*&limit=1', {
+      headers: {
+        'apikey':        cfg.supabaseAnonKey,
+        'Authorization': 'Bearer ' + accessToken,
+        'Accept':        'application/json'
+      }
+    });
+
+    const profRows = await profRes.json();
+    const profile  = Array.isArray(profRows) ? profRows[0] : null;
+
+    // Step 3: Store the session for future API calls
+    cfg.accessToken  = accessToken;
+    cfg.refreshToken = refreshToken;
+    cfg.userId       = userId;
+    if(profile && profile.tenant_id) cfg.tenantId = profile.tenant_id;
+
+    // Also update LabOSApi if the adapter is loaded
+    if(window.LabOSSupabase && window.LabOSSupabase.init){
+      window.LabOSSupabase.init().then(function(c){
+        if(c && c.auth && c.auth.setSession){
+          c.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+        }
+      }).catch(function(){});
+    }
+
+    // Step 4: Route based on role
+    const isPlat   = profile && profile.is_platform;
+    const role     = (profile && profile.role) || 'TENANT_ADMIN';
+    const tenantId = profile && profile.tenant_id;
+    const name     = (profile && profile.full_name) || email;
+
+    S().userName      = name;
+    S().userRole      = role;
+    S().isDemoSession = false;
+
+    if(isPlat){
+      S().isPlatformAdmin = true;
+      enterPlatformMode();
+      toast('Welcome back, ' + name + '. Signed in as platform administrator.', {type:'success', duration:4000});
+    } else if(tenantId){
+      enterTenantMode(tenantId);
+      toast('Welcome back, ' + name + '.', {type:'success', duration:3500});
+    } else {
+      if(btn){ btn.textContent = 'Sign in →'; btn.disabled = false; }
+      if(errDiv){ errDiv.style.display='block'; errDiv.textContent='Account exists but no laboratory is assigned. Contact your administrator.'; }
+    }
+
+  } catch(err){
+    if(btn){ btn.textContent = 'Sign in →'; btn.disabled = false; }
+    if(errDiv){ errDiv.style.display='block'; errDiv.textContent='Connection failed. Check your internet and try again.'; }
+  }
+}
+
+function onbAdminSignIn(){
+  // Legacy function — now handled by the inline form above.
+  // Kept for backward compatibility.
+  const cfg = window.LABOS_CONFIG || {};
+  if(cfg.supabaseUrl && cfg.supabaseAnonKey){
+    // Focus the email field on the inline form
+    const el = document.getElementById('onb-email');
+    if(el){ el.focus(); }
+    return;
+  }
   S().isPlatformAdmin = true;
   S().userName = S().userName && S().userName !== 'Demo User' ? S().userName : 'Platform Admin';
   S().isDemoSession = false;

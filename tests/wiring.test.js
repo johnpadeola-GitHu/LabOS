@@ -922,7 +922,7 @@ describe('Housekeeping — previously-stub buttons now functional', () => {
       // help nav + modal a11y
       'helpRequestArticle','helpGoToArticle','trapFocusInModal','releaseFocusTrap','saveAsDraft',
       // auth
-      'submitRealSignIn',
+      'submitRealSignIn','onbSignInDirect',
       // gateway parsers + live test
       'runLiveParseTest','injectASTMSample','injectHL7Sample',
       // gateway modal handlers
