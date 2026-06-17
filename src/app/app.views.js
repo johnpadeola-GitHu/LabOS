@@ -18422,12 +18422,32 @@ async function submitRealSignIn(){
     return;
   }
 
-  // Show loading state
   if(btn){ btn.textContent = 'Signing in…'; btn.disabled = true; }
   if(errDiv) errDiv.style.display = 'none';
 
   try {
-    const res = await LabOSApi.login(email, password);
+    // The Supabase adapter loads as an ES module and initialises asynchronously.
+    // If LabOSApi is still the mock version, wait briefly for the real one.
+    if(window.LabOSSupabase && !window.LabOSApi.isEnabled()){
+      await window.LabOSSupabase.init().catch(()=>{});
+    }
+
+    // Fallback: if adapter still not ready, sign in directly via supabase-js
+    let res;
+    if(window.LabOSApi && window.LabOSApi.isEnabled && window.LabOSApi.isEnabled()){
+      res = await window.LabOSApi.login(email, password);
+    } else if(window.LabOSSupabase){
+      // Adapter initialised but LabOSApi not yet overwritten — use raw client
+      const c = await window.LabOSSupabase.init();
+      const { data, error } = await c.auth.signInWithPassword({ email, password });
+      if(error){ res = { ok:false, error: error.message }; }
+      else {
+        const { data: prof } = await c.from('app_users').select('*').eq('id', data.user.id).single();
+        res = { ok:true, user: data.user, profile: prof };
+      }
+    } else {
+      res = { ok:false, error:'Backend not available. Check your connection.' };
+    }
 
     if(!res.ok){
       if(btn){ btn.textContent = 'Sign in'; btn.disabled = false; }
@@ -18436,17 +18456,14 @@ async function submitRealSignIn(){
       return;
     }
 
-    const profile = res.profile;
-
-    // Route based on role
-    const isPlat = profile && profile.is_platform;
-    const role   = profile && profile.role ? profile.role : 'TENANT_ADMIN';
+    const profile  = res.profile;
+    const isPlat   = profile && profile.is_platform;
+    const role     = profile && profile.role ? profile.role : 'TENANT_ADMIN';
     const tenantId = profile && profile.tenant_id;
 
     closeModal();
-
-    S().userName    = (profile && profile.full_name) || email;
-    S().userRole    = role;
+    S().userName      = (profile && profile.full_name) || email;
+    S().userRole      = role;
     S().isDemoSession = false;
 
     if(isPlat){
@@ -18477,12 +18494,17 @@ function onbReferralSignIn(){
 }
 
 function onbAdminSignIn(){
-  // When Supabase is configured, show the real sign-in form.
-  if(typeof LabOSApi !== 'undefined' && LabOSApi.isEnabled && LabOSApi.isEnabled()){
+  // Check LABOS_CONFIG directly — it is injected into index.html at build
+  // time and is available immediately, unlike the ES module adapter which
+  // loads asynchronously and may not yet have overwritten window.LabOSApi.
+  const cfg = window.LABOS_CONFIG || {};
+  const hasBackend = !!(cfg.supabaseUrl && cfg.supabaseAnonKey);
+
+  if(hasBackend){
     openModal('real-signin');
     return;
   }
-  // Demo mode — drop straight into platform view.
+  // Demo mode — no backend configured, go straight in.
   S().isPlatformAdmin = true;
   S().userName = S().userName && S().userName !== 'Demo User' ? S().userName : 'Platform Admin';
   S().isDemoSession = false;
