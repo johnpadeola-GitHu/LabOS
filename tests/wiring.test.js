@@ -923,6 +923,14 @@ describe('Housekeeping — previously-stub buttons now functional', () => {
       'helpRequestArticle','helpGoToArticle','trapFocusInModal','releaseFocusTrap','saveAsDraft',
       // auth
       'submitRealSignIn',
+      // gateway parsers + live test
+      'runLiveParseTest','injectASTMSample','injectHL7Sample',
+      // gateway modal handlers
+      'submitAddAnalyzer','submitAddMapping','submitLogCalibration',
+      'onAnalyzerConnChange','onAnalyzerDriverChange',
+      // gateway match/result handlers
+      'openAnalyzerDetail','openMappingEdit','openMatchModal','filterMatchCandidates',
+      'selectMatchCandidate','confirmMatch','openResultDetail','validateGatewayResult','openMessageDetail',
       // notification panel
       'toggleNotifPanel','closeNotifPanel','renderNotifPanel','markNotifRead','markAllNotifsRead','refreshNotifBadge',
       // chart / legacy

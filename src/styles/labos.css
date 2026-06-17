@@ -1250,3 +1250,16 @@
     .help-article-nav{flex-direction:column;}
     .help-nav-btn{max-width:100%;}
   }
+
+  /* ── Instrument Gateway ──────────────────────────────────────── */
+  .dot-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:600}
+  .dot-badge::before{content:'';width:7px;height:7px;border-radius:50%;flex-shrink:0}
+  .dot-badge.online{background:#EDFAF3;color:#1F7A4D}.dot-badge.online::before{background:#1F7A4D}
+  .dot-badge.offline{background:#F5F7FA;color:#6B7787}.dot-badge.offline::before{background:#6B7787}
+  .dot-badge.error{background:#FEF0F0;color:#9A1F1F}.dot-badge.error::before{background:#9A1F1F}
+  .dot-badge.maint{background:#FFF8E6;color:#C77B14}.dot-badge.maint::before{background:#C77B14}
+  .chip{display:inline-block;padding:2px 7px;border-radius:10px;font-size:11px;font-weight:500}
+  .chip-info{background:#E6F0FF;color:#2F4A6D}
+  .chip-ok{background:#EDFAF3;color:#1F7A4D}
+  .chip-warn{background:#FFF8E6;color:#C77B14}
+  .chip-danger{background:#FEF0F0;color:#9A1F1F}

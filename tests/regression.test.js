@@ -223,13 +223,13 @@ describe('Section icons', () => {
     }
   });
 
-  it('navigation mirrors the seven-domain module tree exactly', () => {
+  it('navigation mirrors the eight-domain module tree exactly', () => {
     const { labos } = bootLabOS();
     const titles = labos.NAV_GROUPS.tenant.map((g) => g.title);
     expect(titles).toEqual([
       'Core Services', 'Diagnostics', 'Imaging & Diagnostic',
       'Clinical Packages', 'BiobankOS',
-      'Research & Genomics', 'Administration'
+      'Research & Genomics', 'Instrument Gateway', 'Administration'
     ]);
   });
 
@@ -250,7 +250,7 @@ describe('Section icons', () => {
     probe.textContent = `try { enterTenantMode('tnt_pathcare'); renderShell(); } catch (e) {}`;
     win.document.body.appendChild(probe);
     const groups = [...win.document.querySelectorAll('.nav-group[data-group]')];
-    expect(groups.length).toBe(7);
+    expect(groups.length).toBe(8);
 
     // Core Services is locked: always expanded, no chevron, cannot collapse.
     const core = groups.find((g) => g.querySelector('.nav-group-label')?.textContent === 'Core Services');
@@ -261,7 +261,7 @@ describe('Section icons', () => {
 
     // Every other group is collapsible (button header, chevron, body) and toggles.
     const others = groups.filter((g) => !g.classList.contains('locked'));
-    expect(others.length).toBe(6);
+    expect(others.length).toBe(7);
     expect(others.every((g) =>
       g.querySelector('button.nav-group-title') &&
       g.querySelector('.nav-chevron') &&

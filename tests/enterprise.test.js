@@ -584,3 +584,211 @@ describe('Supabase integration readiness', () => {
     expect(typeof win.LabOSApi.releaseResultRow).toBe('function');
   });
 });
+
+// ── ASTM Parser ──────────────────────────────────────────────────────────────
+describe('ASTMParser', () => {
+  it('exports ASTMParser with parse and utility methods', () => {
+    const { win } = setup();
+    expect(win.ASTMParser).toBeTruthy();
+    expect(typeof win.ASTMParser.parse).toBe('function');
+    expect(typeof win.ASTMParser.computeChecksum).toBe('function');
+    expect(typeof win.ASTMParser.verifyChecksum).toBe('function');
+    expect(typeof win.ASTMParser.normaliseFlag).toBe('function');
+  });
+
+  it('parses a simple ASTM message with H/P/O/R/L segments', () => {
+    const { win } = setup();
+    const raw = 'H|\\^&|||BC-5000^Mindray||||||P|1\rP|1||Smith^John\rO|1|SMP-001||^^^WBC\rR|1|^^^WBC^White Blood Cell Count|7.2|x10^9/L|4.0-11.0|N|||F\rR|2|^^^HGB^Hemoglobin|6.8|g/dL|13.5-17.5|LL|||F\rL|1|N';
+    const result = win.ASTMParser.parse(raw, { name: 'Test BC-5000', model: 'BC-5000' });
+    expect(result.protocol).toBe('ASTM');
+    expect(result.analyzerModel).toBe('BC-5000');
+    expect(result.sampleId).toBe('SMP-001');
+    expect(result.patientName).toBe('John Smith');
+    expect(result.analytes.length).toBe(2);
+    expect(result.analytes[0].code).toBe('WBC');
+    expect(result.analytes[0].value).toBe('7.2');
+    expect(result.analytes[0].flag).toBe('N');
+    expect(result.analytes[1].code).toBe('HGB');
+    expect(result.analytes[1].flag).toBe('LL');
+  });
+
+  it('extracts analyte code from component 3 of OBX-2 test identifier', () => {
+    const { win } = setup();
+    const raw = 'H|\\^&\rR|1|^^^PLT^Platelet Count|48|x10^9/L|150-400|LL|||F\rL|1|N';
+    const result = win.ASTMParser.parse(raw, {});
+    expect(result.analytes.length).toBe(1);
+    expect(result.analytes[0].code).toBe('PLT');
+    expect(result.analytes[0].name).toBe('Platelet Count');
+    expect(result.analytes[0].flag).toBe('LL');
+  });
+
+  it('handles E (error) segments gracefully', () => {
+    const { win } = setup();
+    const raw = 'H|\\^&|||KX-21\rE|COMM_TIMEOUT|Serial port read timeout after 5000ms\rL|1';
+    const result = win.ASTMParser.parse(raw, {});
+    expect(result.errors.length).toBeGreaterThan(0);
+    expect(result.errors[0]).toContain('COMM_TIMEOUT');
+    expect(result.analytes.length).toBe(0);
+  });
+
+  it('normalises vendor-specific flag codes', () => {
+    const { win } = setup();
+    expect(win.ASTMParser.normaliseFlag('HH')).toBe('HH');
+    expect(win.ASTMParser.normaliseFlag('LL')).toBe('LL');
+    expect(win.ASTMParser.normaliseFlag('++')).toBe('HH');
+    expect(win.ASTMParser.normaliseFlag('--')).toBe('LL');
+    expect(win.ASTMParser.normaliseFlag('+')).toBe('H');
+    expect(win.ASTMParser.normaliseFlag('-')).toBe('L');
+    expect(win.ASTMParser.normaliseFlag('N')).toBe('N');
+    expect(win.ASTMParser.normaliseFlag('')).toBe('N');
+  });
+
+  it('computes ASTM checksum correctly', () => {
+    const { win } = setup();
+    // Checksum = sum of ASCII values mod 256 as 2-digit hex
+    const body = '1H|\\^&|||TEST';
+    const cs = win.ASTMParser.computeChecksum(body);
+    expect(typeof cs).toBe('string');
+    expect(cs.length).toBe(2);
+    // Verify it's valid hex
+    expect(parseInt(cs, 16)).not.toBeNaN();
+  });
+
+  it('handles \\r escape in raw string as segment separator', () => {
+    const { win } = setup();
+    const raw = 'H|\\^&\rR|1|^^^WBC|5.0|x10^9/L|4-11|N|||F\rL|1|N';
+    const result = win.ASTMParser.parse(raw, {});
+    expect(result.analytes.length).toBe(1);
+  });
+});
+
+// ── HL7 Parser ───────────────────────────────────────────────────────────────
+describe('HL7Parser', () => {
+  it('exports HL7Parser with parse and utility methods', () => {
+    const { win } = setup();
+    expect(win.HL7Parser).toBeTruthy();
+    expect(typeof win.HL7Parser.parse).toBe('function');
+    expect(typeof win.HL7Parser.extractDelimiters).toBe('function');
+    expect(typeof win.HL7Parser.generateACK).toBe('function');
+    expect(typeof win.HL7Parser.normaliseFlag).toBe('function');
+  });
+
+  it('parses a standard HL7 ORU^R01 message', () => {
+    const { win } = setup();
+    const raw = 'MSH|^~\\&|COBAS|LAB|LABOS|RECV|20260617142203||ORU^R01|MSG001|P|2.5\rPID|1||PT002^^^LAB||Okafor^Adaeze\rOBR|1|ACC4413|ACC4413|CHEM|||20260617140000\rOBX|1|NM|GLU^Glucose||12.4|mmol/L|3.9-6.1|HH|||F\rOBX|2|NM|CREA^Creatinine||89|umol/L|62-115|N|||F';
+    const result = win.HL7Parser.parse(raw, { name: 'Cobas c311', model: 'Cobas c311' });
+    expect(result.protocol).toBe('HL7');
+    expect(result.messageId).toBe('MSG001');
+    expect(result.patientId).toBe('PT002');
+    expect(result.patientName).toBe('Adaeze Okafor');
+    expect(result.accession).toBe('ACC4413');
+    expect(result.analytes.length).toBe(2);
+    expect(result.analytes[0].code).toBe('GLU');
+    expect(result.analytes[0].value).toBe('12.4');
+    expect(result.analytes[0].flag).toBe('HH');
+    expect(result.analytes[1].code).toBe('CREA');
+    expect(result.analytes[1].flag).toBe('N');
+  });
+
+  it('extracts delimiters correctly from MSH', () => {
+    const { win } = setup();
+    const msh = 'MSH|^~\\&|SENDER';
+    const d = win.HL7Parser.extractDelimiters(msh);
+    expect(d.field).toBe('|');
+    expect(d.component).toBe('^');
+    expect(d.repeat).toBe('~');
+    expect(d.escape).toBe('\\');
+    expect(d.subComponent).toBe('&');
+  });
+
+  it('generates a valid ACK message', () => {
+    const { win } = setup();
+    const msh = 'MSH|^~\\&|COBAS|LAB|LABOS|RECV|20260617||ORU^R01|MSG001|P|2.5';
+    const ack = win.HL7Parser.generateACK(msh, 'AA', '');
+    expect(ack).toContain('MSH');
+    expect(ack).toContain('MSA');
+    expect(ack).toContain('AA');
+    expect(ack).toContain('MSG001');
+  });
+
+  it('normalises HL7 abnormal flags correctly', () => {
+    const { win } = setup();
+    expect(win.HL7Parser.normaliseFlag('HH')).toBe('HH');
+    expect(win.HL7Parser.normaliseFlag('LL')).toBe('LL');
+    expect(win.HL7Parser.normaliseFlag('>')).toBe('HH');
+    expect(win.HL7Parser.normaliseFlag('<')).toBe('LL');
+    expect(win.HL7Parser.normaliseFlag('H')).toBe('H');
+    expect(win.HL7Parser.normaliseFlag('L')).toBe('L');
+    expect(win.HL7Parser.normaliseFlag('N')).toBe('N');
+    expect(win.HL7Parser.normaliseFlag('A')).toBe('A');
+    expect(win.HL7Parser.normaliseFlag('AA')).toBe('HH');
+  });
+
+  it('handles missing MSH segment gracefully', () => {
+    const { win } = setup();
+    const raw = 'OBX|1|NM|GLU^Glucose||5.4|mmol/L|3.9-6.1|N|||F';
+    const result = win.HL7Parser.parse(raw, {});
+    expect(result.errors.length).toBeGreaterThan(0);
+    expect(result.errors[0]).toContain('MSH');
+  });
+});
+
+// ── GatewayProtocol dispatcher ───────────────────────────────────────────────
+describe('GatewayProtocol', () => {
+  it('exports GatewayProtocol with detect, parseAuto, ingest', () => {
+    const { win } = setup();
+    expect(win.GatewayProtocol).toBeTruthy();
+    expect(typeof win.GatewayProtocol.detect).toBe('function');
+    expect(typeof win.GatewayProtocol.parseAuto).toBe('function');
+    expect(typeof win.GatewayProtocol.ingest).toBe('function');
+  });
+
+  it('detects ASTM protocol from H| prefix', () => {
+    const { win } = setup();
+    expect(win.GatewayProtocol.detect('H|\\^&|||BC-5000')).toBe('ASTM');
+  });
+
+  it('detects HL7 protocol from MSH| prefix', () => {
+    const { win } = setup();
+    expect(win.GatewayProtocol.detect('MSH|^~\\&|COBAS')).toBe('HL7');
+  });
+
+  it('auto-routes ASTM message to ASTMParser', () => {
+    const { win } = setup();
+    const raw = 'H|\\^&|||BC-5000\rR|1|^^^WBC|7.2|x10^9/L|4-11|N|||F\rL|1|N';
+    const result = win.GatewayProtocol.parseAuto(raw, { driver: 'mindray_bc5000' });
+    expect(result.protocol).toBe('ASTM');
+    expect(result.analytes.length).toBeGreaterThan(0);
+  });
+
+  it('auto-routes HL7 message to HL7Parser', () => {
+    const { win } = setup();
+    const raw = 'MSH|^~\\&|COBAS|LAB|||20260617||ORU^R01|MSG1|P|2.5\rOBX|1|NM|GLU^Glucose||5.4|mmol/L|3.9-6.1|N|||F';
+    const result = win.GatewayProtocol.parseAuto(raw, { driver: 'roche_cobas' });
+    expect(result.protocol).toBe('HL7');
+    expect(result.analytes.length).toBeGreaterThan(0);
+  });
+
+  it('ingest() adds parsed result to GATEWAY_STATE.gatewayResults', () => {
+    const { win } = setup();
+    const raw = 'H|\\^&|||BC-5000\rR|1|^^^WBC|7.2|x10^9/L|4-11|N|||F\rL|1|N';
+    const parsed = win.ASTMParser.parse(raw, {});
+    const before = (win.GATEWAY_STATE.gatewayResults || []).length;
+    win.GatewayProtocol.ingest(parsed, 'ANA-001');
+    const after = (win.GATEWAY_STATE.gatewayResults || []).length;
+    expect(after).toBe(before + 1);
+    const added = win.GATEWAY_STATE.gatewayResults[0];
+    expect(added.status).toBe('pending');
+    expect(added.analytes.length).toBeGreaterThan(0);
+  });
+
+  it('ingest() adds message to GATEWAY_STATE.gatewayMessages', () => {
+    const { win } = setup();
+    const raw = 'MSH|^~\\&|COBAS|LAB|||20260617||ORU^R01|MSG2|P|2.5\rOBX|1|NM|K^Potassium||3.2|mmol/L|3.5-5.0|L|||F';
+    const parsed = win.HL7Parser.parse(raw, {});
+    const before = (win.GATEWAY_STATE.gatewayMessages || []).length;
+    win.GatewayProtocol.ingest(parsed, 'ANA-003');
+    const after = (win.GATEWAY_STATE.gatewayMessages || []).length;
+    expect(after).toBe(before + 1);
+  });
+});

@@ -133,12 +133,12 @@ describe('Module gating — nav groups by plan', () => {
     expect(groups.length).toBeLessThan(7);
   });
 
-  it('Enterprise tenant sees all 7 nav groups', () => {
+  it('Enterprise tenant sees all 8 nav groups', () => {
     const { win } = setup();
     win.enterTenantMode('tnt_pathcare'); // enterprise
     win.renderShell();
     const groups = win.document.querySelectorAll('.nav-group[data-group]');
-    expect(groups.length).toBe(7);
+    expect(groups.length).toBe(8);
   });
 
   it('Professional tenant does not see Research & Genomics (all items gated research:false)', () => {

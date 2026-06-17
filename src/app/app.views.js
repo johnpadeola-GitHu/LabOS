@@ -1337,6 +1337,14 @@ const ROUTES = {
   qualityControl:{title:'Quality Control (QC)', sub:'Levey-Jennings charts · Westgard rules · ISO 15189', render: renderQualityControl, scope:'tenant'},
   privacy:       {title:'Privacy & Data Rights', sub:'NDPR data subject requests · consent log · retention policy', render: renderPrivacyCenter, scope:'tenant'},
 
+  // ── Instrument Gateway ───────────────────────────────────────────────────────
+  gatewayDashboard: {title:'Gateway Dashboard',   sub:'Analyzer status and result throughput',       render: renderGatewayDashboard,   scope:'tenant'},
+  analyzers:        {title:'Analyzer Management', sub:'Register and configure laboratory analyzers', render: renderAnalyzerManagement, scope:'tenant'},
+  testMapping:      {title:'Test Mapping Engine', sub:'Map analyzer codes to LabOS test catalogue',  render: renderTestMapping,        scope:'tenant'},
+  sampleMatching:   {title:'Sample Matching',     sub:'Match results to patient requests',           render: renderSampleMatching,     scope:'tenant'},
+  resultValidation: {title:'Result Validation',   sub:'Validate incoming analyzer results',          render: renderResultValidation,   scope:'tenant'},
+  gatewayLogs:      {title:'Communication Logs',  sub:'Analyzer message log and sync audit trail',   render: renderGatewayLogs,        scope:'tenant'},
+
   // ── Diagnostics (new leaves; existing diagnostics keep their renderers) ──
   microbiology:  {title:'Microbiology', sub:'Cultures, sensitivities and antibiograms', render: renderMicrobiology, scope:'tenant'},
   hematology:    {title:'Hematology', sub:'FBC, films, coagulation and haemoglobinopathies', render: renderHematology, scope:'tenant'},
@@ -6334,6 +6342,794 @@ function renderBackupRecovery(root){
     </div>`;
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// INSTRUMENT GATEWAY — Renderers
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function renderGatewayDashboard(root){
+  const gs = window.GATEWAY_STATE || {};
+  const analyzers = gs.analyzers || [];
+  const results   = gs.gatewayResults || [];
+  const syncLog   = gs.syncLog || [];
+  const online    = analyzers.filter(a=>a.status==='online').length;
+  const offline   = analyzers.filter(a=>a.status==='offline').length;
+  const errorA    = analyzers.filter(a=>a.status==='error').length;
+  const pending   = results.filter(r=>r.status==='pending').length;
+  const validated = results.filter(r=>r.status==='validated').length;
+  const published = results.filter(r=>r.status==='published').length;
+  const lastSync  = syncLog.length ? syncLog[syncLog.length-1] : null;
+  const E = GatewayEngine;
+
+  root.innerHTML = `
+    <div class="page-header">
+      <div>
+        <div class="page-title" style="display:flex;align-items:center;gap:10px">
+          ${sectionIcon('gateway',24)} Instrument Gateway
+        </div>
+        <div class="page-subtitle">Real-time analyzer connectivity and result throughput</div>
+      </div>
+      <div class="actions">
+        <button class="btn" onclick="navigate('analyzers')">Manage analyzers</button>
+        <button class="btn primary" onclick="navigate('sampleMatching')">Review pending (${pending})</button>
+      </div>
+    </div>
+
+    <div class="stats-grid" style="grid-template-columns:repeat(6,1fr)">
+      <div class="stat-card">
+        <div class="stat-label">Analyzers online</div>
+        <div class="stat-value" style="color:#1F7A4D">${online}</div>
+        <div class="stat-meta">of ${analyzers.length} registered</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Offline / Error</div>
+        <div class="stat-value" style="color:#9A1F1F">${offline+errorA}</div>
+        <div class="stat-meta">${errorA} with errors</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Pending match</div>
+        <div class="stat-value" style="color:#C77B14">${pending}</div>
+        <div class="stat-meta">need attention</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Validated</div>
+        <div class="stat-value">${validated}</div>
+        <div class="stat-meta">ready to publish</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Published today</div>
+        <div class="stat-value" style="color:#1F7A4D">${published}</div>
+        <div class="stat-meta">to patient records</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Last sync</div>
+        <div class="stat-value" style="font-size:16px">${lastSync ? E.timeAgo(lastSync.syncedAt) : '—'}</div>
+        <div class="stat-meta">${lastSync ? `${lastSync.recordsOk}/${lastSync.recordsSent} ok` : 'No syncs yet'}</div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">Analyzer status</div>
+          <button class="btn-sm" onclick="navigate('analyzers')">View all</button>
+        </div>
+        <div class="panel-body flush">
+          <table>
+            <thead><tr><th>Analyzer</th><th>Protocol</th><th>Status</th><th>Last result</th></tr></thead>
+            <tbody>
+              ${analyzers.map(a=>`<tr onclick="navigate('analyzers')">
+                <td><b>${esc(a.name)}</b><br><span class="muted-sm">${esc(a.vendor)} ${esc(a.model)}</span></td>
+                <td><span class="chip chip-info">${esc(a.protocol)}</span></td>
+                <td>${E.analyzerStatusBadge(a.status)}</td>
+                <td class="muted-sm">${E.timeAgo(a.lastResultAt)}</td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">Recent results</div>
+          <button class="btn-sm" onclick="navigate('sampleMatching')">Review all</button>
+        </div>
+        <div class="panel-body flush">
+          <table>
+            <thead><tr><th>Sample</th><th>Analyzer</th><th>Tests</th><th>Status</th></tr></thead>
+            <tbody>
+              ${results.map(r=>{
+                const ana = analyzers.find(a=>a.id===r.analyzerId);
+                const criticals = (r.analytes||[]).filter(a=>a.flag==='HH'||a.flag==='LL').length;
+                return `<tr onclick="navigate('sampleMatching')">
+                  <td><b>${esc(r.analyzerBarcode||r.analyzerSampleId||'—')}</b>${criticals>0?`<br><span style="color:#9A1F1F;font-size:11px;font-weight:600">⚠ ${criticals} CRITICAL</span>`:''}</td>
+                  <td class="muted-sm">${esc(ana?ana.model:'Unknown')}</td>
+                  <td class="muted-sm">${(r.analytes||[]).length} analytes</td>
+                  <td>${E.statusBadge(r.status)}</td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">Sync history</div>
+      </div>
+      <div class="panel-body flush">
+        <table>
+          <thead><tr><th>Time</th><th>Type</th><th>Sent</th><th>OK</th><th>Failed</th><th>Error</th></tr></thead>
+          <tbody>
+            ${(gs.syncLog||[]).map(s=>`<tr>
+              <td class="muted-sm">${E.timeAgo(s.syncedAt)}</td>
+              <td>${esc(s.syncType)}</td>
+              <td>${s.recordsSent}</td>
+              <td style="color:#1F7A4D">${s.recordsOk}</td>
+              <td style="color:${s.recordsFailed>0?'#9A1F1F':'inherit'}">${s.recordsFailed}</td>
+              <td class="muted-sm" style="font-size:11px">${esc(s.error||'—')}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:16px">
+      <div class="panel-header">
+        <div class="panel-title">Live message parser</div>
+        <div class="muted-sm" style="font-size:12px">Paste a raw ASTM or HL7 message to test parsing — protocol is auto-detected</div>
+      </div>
+      <div class="panel-body">
+        <textarea id="parse-test-input" class="input" rows="5" style="font-family:monospace;font-size:12px;width:100%"
+          placeholder="Paste a raw ASTM or HL7 message here…"></textarea>
+        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+          <button class="btn primary" onclick="runLiveParseTest()">Parse message</button>
+          <button class="btn" onclick="document.getElementById('parse-test-input').value='';document.getElementById('parse-test-output').innerHTML=''">Clear</button>
+          <button class="btn" onclick="injectASTMSample()">Try ASTM sample</button>
+          <button class="btn" onclick="injectHL7Sample()">Try HL7 sample</button>
+        </div>
+        <div id="parse-test-output" style="margin-top:14px"></div>
+      </div>
+    </div>
+  `;
+}
+
+function injectASTMSample(){
+  const el = document.getElementById('parse-test-input');
+  if(el){ el.value = 'H|\\^&|||BC-5000^Mindray||||||P|1\rP|1||Smith^John\rO|1|SMP-20260617-099||^^^WBC\rR|1|^^^WBC^White Blood Cell Count|7.2|x10^9/L|4.0-11.0|N|||F\rR|2|^^^HGB^Hemoglobin|14.2|g/dL|13.5-17.5|N|||F\rR|3|^^^PLT^Platelet Count|48|x10^9/L|150-400|LL|||F\rL|1|N'; }
+  runLiveParseTest();
+}
+
+function injectHL7Sample(){
+  const el = document.getElementById('parse-test-input');
+  if(el){ el.value = 'MSH|^~\\&|COBAS|LAB|LABOS|RECV|20260617142203||ORU^R01|MSG001|P|2.5\rPID|1||PT002^^^LAB||Okafor^Adaeze\rOBR|1|ACC4413|ACC4413|CHEM^Chemistry Panel|||20260617140000\rOBX|1|NM|GLU^Glucose||12.4|mmol/L|3.9-6.1|HH|||F\rOBX|2|NM|CREA^Creatinine||89|umol/L|62-115|N|||F\rOBX|3|NM|NA^Sodium||124|mmol/L|136-145|LL|||F'; }
+  runLiveParseTest();
+}
+
+function runLiveParseTest(){
+  const raw = document.getElementById('parse-test-input')?.value || '';
+  const out = document.getElementById('parse-test-output');
+  if(!out) return;
+  if(!raw.trim()){ out.innerHTML='<div class="muted-sm">Paste a message above first.</div>'; return; }
+  if(!window.GatewayProtocol){ out.innerHTML='<div style="color:#9A1F1F">GatewayProtocol parser not loaded.</div>'; return; }
+
+  const result = window.GatewayProtocol.testParse(raw);
+  const flagColor = f => f==='HH'||f==='LL'?'#9A1F1F':f==='H'||f==='L'?'#C77B14':'#1F7A4D';
+  out.innerHTML = `
+    <div style="background:var(--bg-soft);border:1px solid var(--line);border-radius:8px;padding:16px">
+      <div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:12px">
+        <div><div class="muted-sm">Protocol</div><b>${esc(result.protocol)}</b></div>
+        <div><div class="muted-sm">Analyzer</div><b>${esc(result.analyzerModel||result.analyzerName||'—')}</b></div>
+        <div><div class="muted-sm">Sample ID</div><b style="font-family:monospace">${esc(result.sampleId||'—')}</b></div>
+        <div><div class="muted-sm">Barcode</div><b style="font-family:monospace">${esc(result.barcode||'—')}</b></div>
+        <div><div class="muted-sm">Accession</div><b style="font-family:monospace">${esc(result.accession||'—')}</b></div>
+        <div><div class="muted-sm">Patient ID</div><b>${esc(result.patientId||'—')}</b></div>
+        <div><div class="muted-sm">Patient name</div><b>${esc(result.patientName||'—')}</b></div>
+        <div><div class="muted-sm">Analytes</div><b>${result.analytes.length}</b></div>
+      </div>
+      ${result.errors.length>0?`
+        <div style="background:#FFF0F0;border-left:4px solid #9A1F1F;border-radius:4px;padding:10px 14px;margin-bottom:12px;font-size:12px">
+          <b style="color:#9A1F1F">⚠ Parse warnings (${result.errors.length})</b>
+          ${result.errors.map(e=>`<div style="color:#9A1F1F;margin-top:4px">${esc(e)}</div>`).join('')}
+        </div>`:''
+      }
+      ${result.analytes.length===0
+        ? '<div class="muted-sm" style="padding:8px 0">No analytes extracted from this message.</div>'
+        : `<table>
+            <thead><tr><th>Code</th><th>Test name</th><th>Value</th><th>Unit</th><th>Flag</th><th>Status</th><th>Ref range</th></tr></thead>
+            <tbody>
+              ${result.analytes.map(a=>`<tr>
+                <td><b style="font-family:monospace">${esc(a.code)}</b></td>
+                <td>${esc(a.name||'—')}</td>
+                <td><b style="color:${flagColor(a.flag)}">${esc(a.value)}</b></td>
+                <td class="muted-sm">${esc(a.unit||'—')}</td>
+                <td><b style="color:${flagColor(a.flag)}">${esc(a.flag||'N')}</b></td>
+                <td class="muted-sm">${esc(a.status||'F')}</td>
+                <td class="muted-sm" style="font-family:monospace;font-size:11px">${esc(a.refRange||'—')}</td>
+              </tr>`).join('')}
+            </tbody>
+          </table>`
+      }
+    </div>
+  `;
+}
+
+function renderAnalyzerManagement(root){
+  const gs = window.GATEWAY_STATE || {};
+  const analyzers = gs.analyzers || [];
+  const E = GatewayEngine;
+
+  root.innerHTML = `
+    <div class="page-header">
+      <div>
+        <div class="page-title" style="display:flex;align-items:center;gap:10px">
+          ${sectionIcon('analyzers',24)} Analyzer Management
+        </div>
+        <div class="page-subtitle">Register, configure and monitor laboratory instruments</div>
+      </div>
+      <div class="actions">
+        <button class="btn primary" onclick="openModal('add-analyzer')">+ Register analyzer</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">Registered analyzers</div>
+        <div style="display:flex;gap:8px">
+          <span class="dot-badge online">Online: ${analyzers.filter(a=>a.status==='online').length}</span>
+          <span class="dot-badge offline">Offline: ${analyzers.filter(a=>a.status==='offline').length}</span>
+          <span class="dot-badge error">Error: ${analyzers.filter(a=>a.status==='error').length}</span>
+        </div>
+      </div>
+      <div class="panel-body flush">
+        <table>
+          <thead><tr><th>Name / Model</th><th>Department</th><th>Protocol</th><th>Connection</th><th>Status</th><th>Results</th><th>Last active</th><th></th></tr></thead>
+          <tbody>
+            ${analyzers.map(a=>`<tr>
+              <td>
+                <b>${esc(a.name)}</b><br>
+                <span class="muted-sm">${esc(a.vendor)} ${esc(a.model)} · S/N ${esc(a.serialNumber||'—')}</span>
+              </td>
+              <td>${esc(a.department)}</td>
+              <td><span class="chip chip-info">${esc(a.protocol)}</span></td>
+              <td class="muted-sm" style="font-size:12px">
+                ${a.port.type === 'TCP'
+                  ? `TCP ${esc(a.port.ip)}:${a.port.port}`
+                  : a.port.type === 'RS232'
+                  ? `${esc(a.port.comPort)} @ ${a.port.baudRate} baud`
+                  : esc(a.port.type)}
+              </td>
+              <td>${E.analyzerStatusBadge(a.status)}</td>
+              <td>
+                <span style="font-weight:600">${a.resultCount.toLocaleString()}</span>
+                ${a.errorCount>0?`<br><span style="color:#9A1F1F;font-size:11px">${a.errorCount} errors</span>`:''}
+              </td>
+              <td class="muted-sm">${E.timeAgo(a.lastSeen)}</td>
+              <td style="text-align:right">
+                <button class="btn-sm" onclick="openAnalyzerDetail('${esc(a.id)}')">Configure</button>
+              </td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:16px">
+      <div class="panel-header"><div class="panel-title">Available drivers</div></div>
+      <div class="panel-body flush">
+        <table>
+          <thead><tr><th>Driver</th><th>Vendor</th><th>Protocol</th><th>Supported connections</th><th>Notes</th></tr></thead>
+          <tbody>
+            ${Object.entries(window.ANALYZER_DRIVERS||{}).map(([key,d])=>`<tr>
+              <td><b>${esc(d.label)}</b><br><span class="muted-sm" style="font-size:11px">${key}</span></td>
+              <td class="muted-sm">${esc(d.vendor)}</td>
+              <td><span class="chip chip-info">${esc(d.protocol)}</span></td>
+              <td class="muted-sm">${(d.connections||[]).join(' · ')}</td>
+              <td class="muted-sm" style="font-size:12px">${esc(d.description||'')}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function openAnalyzerDetail(id){
+  const gs = window.GATEWAY_STATE || {};
+  const a = (gs.analyzers||[]).find(x=>x.id===id);
+  if(!a){ toast('Analyzer not found',{type:'error'}); return; }
+  const E = GatewayEngine;
+  const driverInfo = (window.ANALYZER_DRIVERS||{})[a.driver] || {};
+  const cal = (gs.calibrationLog||[]).filter(c=>c.analyzerId===id).sort((x,y)=>new Date(y.calibratedAt)-new Date(x.calibratedAt));
+  const lastCal = cal[0];
+
+  openModalWith(`
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">${esc(a.name)}</div>
+        <div class="muted-sm">${esc(a.vendor)} ${esc(a.model)} · ${esc(a.department)}</div>
+      </div>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body" style="max-height:70vh;overflow-y:auto">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+        <div>
+          <div class="form-group"><label>Status</label><div style="padding-top:4px">${E.analyzerStatusBadge(a.status)}</div></div>
+          <div class="form-group"><label>Driver</label><div class="muted-sm">${esc(driverInfo.label||a.driver)}</div></div>
+          <div class="form-group"><label>Protocol</label><div class="muted-sm">${esc(a.protocol)}</div></div>
+          <div class="form-group"><label>Serial number</label><div class="muted-sm">${esc(a.serialNumber||'—')}</div></div>
+          <div class="form-group"><label>Total results</label><div class="muted-sm">${a.resultCount.toLocaleString()}</div></div>
+        </div>
+        <div>
+          <div class="form-group"><label>Connection type</label><div class="muted-sm">${esc(a.port.type)}</div></div>
+          ${a.port.type==='TCP'?`
+            <div class="form-group"><label>IP address</label><div class="muted-sm">${esc(a.port.ip)}</div></div>
+            <div class="form-group"><label>Port</label><div class="muted-sm">${a.port.port}</div></div>
+          `:`
+            <div class="form-group"><label>COM port</label><div class="muted-sm">${esc(a.port.comPort)}</div></div>
+            <div class="form-group"><label>Baud rate</label><div class="muted-sm">${a.port.baudRate}</div></div>
+            <div class="form-group"><label>Data/Stop/Parity</label><div class="muted-sm">${a.port.dataBits}/${a.port.stopBits}/${a.port.parity}</div></div>
+          `}
+          <div class="form-group"><label>Last seen</label><div class="muted-sm">${E.timeAgo(a.lastSeen)}</div></div>
+        </div>
+      </div>
+      <div class="panel" style="margin-bottom:12px">
+        <div class="panel-header"><div class="panel-title">Calibration</div><button class="btn-sm" onclick="openModal('log-calibration')">Log calibration</button></div>
+        <div class="panel-body flush">
+          ${lastCal?`<table><tbody>
+            <tr><td><b>Last calibrated</b></td><td>${new Date(lastCal.calibratedAt).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</td></tr>
+            <tr><td><b>Next due</b></td><td>${lastCal.nextDueAt?new Date(lastCal.nextDueAt).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):'—'}</td></tr>
+            <tr><td><b>Calibrated by</b></td><td class="muted-sm">${esc(lastCal.calibratedBy)}</td></tr>
+            <tr><td><b>Calibrator lot</b></td><td class="muted-sm">${esc(lastCal.calibratorLot)}</td></tr>
+            <tr><td><b>Outcome</b></td><td>${lastCal.passed?'<span class="status completed">Passed</span>':'<span class="status cancelled">Failed</span>'}</td></tr>
+            <tr><td><b>Notes</b></td><td class="muted-sm">${esc(lastCal.notes||'—')}</td></tr>
+          </tbody></table>`:`<div style="padding:16px;color:var(--ink-soft);font-size:13px">No calibration records.</div>`}
+        </div>
+      </div>
+      <div class="form-group"><label>Notes</label><div class="muted-sm">${esc(a.notes||'—')}</div></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal()">Close</button>
+      <button class="btn" onclick="toast('Test connection sent to Gateway agent',{type:'info',title:'Ping sent'});closeModal()">Test connection</button>
+      <button class="btn primary" onclick="toast('Configuration saved',{type:'success'});closeModal()">Save changes</button>
+    </div>
+  `);
+}
+
+function renderTestMapping(root){
+  const gs = window.GATEWAY_STATE || {};
+  const mappings  = gs.testMappings || [];
+  const analyzers = gs.analyzers || [];
+
+  root.innerHTML = `
+    <div class="page-header">
+      <div>
+        <div class="page-title" style="display:flex;align-items:center;gap:10px">
+          ${sectionIcon('testMapping',24)} Test Mapping Engine
+        </div>
+        <div class="page-subtitle">Map analyzer codes to LabOS test catalogue — configurable without code changes</div>
+      </div>
+      <div class="actions">
+        <button class="btn primary" onclick="openModal('add-mapping')">+ Add mapping</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">Active mappings (${mappings.filter(m=>m.analyzerCode).length})</div>
+        <div class="muted-sm" style="font-size:12px">Global mappings apply to all analyzers. Analyzer-specific mappings override globals.</div>
+      </div>
+      <div class="panel-body flush">
+        <table>
+          <thead><tr><th>Analyzer code</th><th>LabOS test name</th><th>LabOS code</th><th>Unit</th><th>Ref range (M)</th><th>Ref range (F)</th><th>Critical values</th><th>Analyzers</th></tr></thead>
+          <tbody>
+            ${mappings.map(m=>`<tr onclick="openMappingEdit('${esc(m.id)}')">
+              <td><b style="font-family:monospace;font-size:14px">${esc(m.analyzerCode)}</b></td>
+              <td>${esc(m.labosName)}</td>
+              <td class="muted-sm" style="font-family:monospace;font-size:12px">${esc(m.labosCode)}</td>
+              <td class="muted-sm">${esc(m.unit||'—')}</td>
+              <td class="muted-sm">${m.refLowM!=null?`${m.refLowM}–${m.refHighM}`:'—'}</td>
+              <td class="muted-sm">${m.refLowF!=null?`${m.refLowF}–${m.refHighF}`:'—'}</td>
+              <td class="muted-sm" style="font-size:12px">
+                ${m.critLow!=null?`<span style="color:#9A1F1F">↓${m.critLow}</span> `:''}${m.critHigh!=null?`<span style="color:#9A1F1F">↑${m.critHigh}</span>`:'—'}
+              </td>
+              <td class="muted-sm" style="font-size:11px">
+                ${(m.analyzerIds||[]).map(id=>{const a=analyzers.find(x=>x.id===id);return a?esc(a.model):'?';}).join(', ')||'Global'}
+              </td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function openMappingEdit(id){
+  const gs = window.GATEWAY_STATE || {};
+  const m = (gs.testMappings||[]).find(x=>x.id===id);
+  if(!m){ toast('Mapping not found',{type:'error'}); return; }
+  openModalWith(`
+    <div class="modal-header">
+      <div><div class="modal-title">Edit mapping — ${esc(m.analyzerCode)}</div></div>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="field"><label>Analyzer code</label><input class="input" value="${esc(m.analyzerCode)}"></div>
+        <div class="field"><label>LabOS code</label><input class="input" value="${esc(m.labosCode)}"></div>
+        <div class="field" style="grid-column:span 2"><label>LabOS test name</label><input class="input" value="${esc(m.labosName)}"></div>
+        <div class="field"><label>Unit</label><input class="input" value="${esc(m.unit||'')}"></div>
+        <div class="field"><label>Decimal places</label><input class="input" type="number" value="${m.decimalPlaces??2}"></div>
+        <div class="field"><label>Ref range low (Male)</label><input class="input" type="number" value="${m.refLowM??''}"></div>
+        <div class="field"><label>Ref range high (Male)</label><input class="input" type="number" value="${m.refHighM??''}"></div>
+        <div class="field"><label>Ref range low (Female)</label><input class="input" type="number" value="${m.refLowF??''}"></div>
+        <div class="field"><label>Ref range high (Female)</label><input class="input" type="number" value="${m.refHighF??''}"></div>
+        <div class="field"><label>Critical low</label><input class="input" type="number" value="${m.critLow??''}"></div>
+        <div class="field"><label>Critical high</label><input class="input" type="number" value="${m.critHigh??''}"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn primary" onclick="toast('Mapping saved',{type:'success'});closeModal()">Save mapping</button>
+    </div>
+  `);
+}
+
+function renderSampleMatching(root){
+  const gs = window.GATEWAY_STATE || {};
+  const results   = gs.gatewayResults || [];
+  const analyzers = gs.analyzers || [];
+  const E = GatewayEngine;
+  const pending = results.filter(r=>r.status==='pending');
+
+  root.innerHTML = `
+    <div class="page-header">
+      <div>
+        <div class="page-title" style="display:flex;align-items:center;gap:10px">
+          ${sectionIcon('sampleMatch',24)} Sample Matching Engine
+        </div>
+        <div class="page-subtitle">Match analyzer results to patient requests using barcode → sample ID → accession → patient ID</div>
+      </div>
+    </div>
+
+    ${pending.length > 0 ? `
+    <div class="alert-banner warn" style="margin-bottom:16px">
+      <span class="icon">⚠</span>
+      <div><b>${pending.length} result${pending.length>1?'s':''} pending manual matching.</b> Review and assign to the correct patient request.</div>
+    </div>` : ''}
+
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">All incoming results</div>
+      </div>
+      <div class="panel-body flush">
+        <table>
+          <thead><tr><th>Received</th><th>Analyzer</th><th>Barcode / Sample ID</th><th>Analytes</th><th>Flags</th><th>Match</th><th>Status</th><th></th></tr></thead>
+          <tbody>
+            ${results.map(r=>{
+              const ana = analyzers.find(a=>a.id===r.analyzerId);
+              const criticals = (r.analytes||[]).filter(a=>a.flag==='HH'||a.flag==='LL');
+              const flags     = (r.analytes||[]).filter(a=>a.flag&&a.flag!=='N');
+              return `<tr>
+                <td class="muted-sm">${E.timeAgo(r.receivedAt)}</td>
+                <td class="muted-sm" style="font-size:12px">${esc(ana?ana.model:'Unknown')}</td>
+                <td>
+                  <b style="font-family:monospace">${esc(r.analyzerBarcode||r.analyzerSampleId||'—')}</b>
+                  ${r.analyzerAccession?`<br><span class="muted-sm" style="font-size:11px">Acc: ${esc(r.analyzerAccession)}</span>`:''}
+                </td>
+                <td class="muted-sm">${(r.analytes||[]).map(a=>a.code).join(', ')}</td>
+                <td>
+                  ${criticals.length>0?`<span style="color:#9A1F1F;font-weight:600;font-size:12px">⚠ ${criticals.map(a=>a.code).join(', ')} CRITICAL</span><br>`:''}
+                  ${flags.filter(a=>a.flag!=='HH'&&a.flag!=='LL').length>0?`<span class="muted-sm" style="font-size:11px">${flags.filter(a=>a.flag!=='HH'&&a.flag!=='LL').map(a=>`${a.code}:${a.flag}`).join(', ')}</span>`:''}
+                </td>
+                <td class="muted-sm" style="font-size:12px">
+                  ${r.matchMethod?`<span style="color:#1F7A4D">${esc(r.matchMethod)} (${esc(r.matchConfidence)})</span>`:'<span style="color:#9A1F1F">Unmatched</span>'}
+                </td>
+                <td>${E.statusBadge(r.status)}</td>
+                <td style="text-align:right">
+                  ${r.status==='pending'
+                    ? `<button class="btn-sm" onclick="openMatchModal('${esc(r.id)}')">Match</button>`
+                    : `<button class="btn-sm" onclick="openResultDetail('${esc(r.id)}')">View</button>`}
+                </td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function openMatchModal(id){
+  const gs = window.GATEWAY_STATE || {};
+  const r = (gs.gatewayResults||[]).find(x=>x.id===id);
+  if(!r){ toast('Result not found',{type:'error'}); return; }
+  const samples = APP_STATE.patients || [];
+  openModalWith(`
+    <div class="modal-header">
+      <div><div class="modal-title">Match result to patient request</div>
+        <div class="muted-sm">Barcode: ${esc(r.analyzerBarcode||'—')} · Sample: ${esc(r.analyzerSampleId||'—')}</div>
+      </div>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div style="margin-bottom:16px">
+        <label class="field-label">Analytes in this result</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+          ${(r.analytes||[]).map(a=>`<span class="chip ${a.flag==='HH'||a.flag==='LL'?'chip-danger':a.flag!=='N'?'chip-warn':'chip-info'}">${esc(a.code)}: ${esc(a.value)} ${esc(a.unit)}</span>`).join('')}
+        </div>
+      </div>
+      <div class="field">
+        <label>Search patient or request ID</label>
+        <input class="input" id="match-search" placeholder="Type patient name, hospital number, or request ID…" oninput="filterMatchCandidates(this.value)">
+      </div>
+      <div id="match-candidates" style="margin-top:8px;max-height:200px;overflow-y:auto;border:1px solid var(--line);border-radius:6px">
+        <div style="padding:12px 16px;color:var(--ink-soft);font-size:13px">Type above to search for a patient or request…</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn primary" id="confirm-match-btn" disabled onclick="confirmMatch('${esc(r.id)}')">Confirm match</button>
+    </div>
+  `);
+}
+
+function filterMatchCandidates(q){
+  const box = document.getElementById('match-candidates');
+  if(!box||!q||q.length<2){
+    if(box) box.innerHTML='<div style="padding:12px 16px;color:var(--ink-soft);font-size:13px">Type at least 2 characters…</div>';
+    return;
+  }
+  const patients = (APP_STATE.patients||[]).filter(p=>(p.name||'').toLowerCase().includes(q.toLowerCase())||(p.hospitalNumber||'').includes(q));
+  if(!patients.length){ box.innerHTML='<div style="padding:12px 16px;color:var(--ink-soft);font-size:13px">No patients found.</div>'; return; }
+  box.innerHTML = patients.slice(0,6).map(p=>`
+    <div style="padding:10px 16px;border-bottom:1px solid var(--line);cursor:pointer;display:flex;justify-content:space-between;align-items:center"
+         onclick="selectMatchCandidate('${esc(p.id)}','${esc(p.name)}')">
+      <div><b>${esc(p.name)}</b><br><span class="muted-sm">${esc(p.hospitalNumber||p.id)}</span></div>
+      <button class="btn-sm" onclick="selectMatchCandidate('${esc(p.id)}','${esc(p.name)}')">Select</button>
+    </div>`).join('');
+}
+
+function selectMatchCandidate(patientId, patientName){
+  const btn = document.getElementById('confirm-match-btn');
+  if(btn){ btn.disabled=false; btn.dataset.patientId=patientId; }
+  const box = document.getElementById('match-candidates');
+  if(box) box.innerHTML=`<div style="padding:12px 16px;background:var(--bg-soft);border-radius:4px"><b>Selected:</b> ${esc(patientName)}</div>`;
+}
+
+function confirmMatch(resultId){
+  const btn = document.getElementById('confirm-match-btn');
+  const patientId = btn && btn.dataset.patientId;
+  if(!patientId){ toast('Select a patient first',{type:'warn'}); return; }
+  const gs = window.GATEWAY_STATE||{};
+  const r = (gs.gatewayResults||[]).find(x=>x.id===resultId);
+  if(r){
+    r.status='matched'; r.matchMethod='manual'; r.matchConfidence='manual'; r.matchedPatientId=patientId;
+    toast('Result matched. Proceed to Result Validation to review and publish.',{type:'success',duration:4000});
+  }
+  closeModal();
+  renderSampleMatching(document.getElementById('content'));
+}
+
+function openResultDetail(id){
+  const gs = window.GATEWAY_STATE || {};
+  const r = (gs.gatewayResults||[]).find(x=>x.id===id);
+  if(!r){ toast('Not found',{type:'error'}); return; }
+  const E = GatewayEngine;
+  openModalWith(`
+    <div class="modal-header">
+      <div><div class="modal-title">Result detail</div>
+        <div class="muted-sm">${esc(r.analyzerBarcode||r.analyzerSampleId||'—')} · ${E.timeAgo(r.receivedAt)}</div>
+      </div>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <table>
+        <thead><tr><th>Code</th><th>Test name</th><th>Value</th><th>Unit</th><th>Flag</th><th>Status</th></tr></thead>
+        <tbody>
+          ${(r.analytes||[]).map(a=>`<tr>
+            <td style="font-family:monospace">${esc(a.code)}</td>
+            <td>${esc(a.name||'—')}</td>
+            <td><b style="${a.flag==='HH'||a.flag==='LL'?'color:#9A1F1F':''}">${esc(a.value)}</b></td>
+            <td class="muted-sm">${esc(a.unit||'')}</td>
+            <td>${a.flag&&a.flag!=='N'?`<b style="color:${a.flag==='HH'||a.flag==='LL'?'#9A1F1F':'#C77B14'}">${esc(a.flag)}</b>`:'N'}</td>
+            <td>${esc(a.status||'')}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal()">Close</button>
+    </div>
+  `);
+}
+
+function renderResultValidation(root){
+  const gs = window.GATEWAY_STATE || {};
+  const results   = gs.gatewayResults || [];
+  const mappings  = gs.testMappings || [];
+  const analyzers = gs.analyzers || [];
+  const E = GatewayEngine;
+  const reviewable = results.filter(r=>r.status==='matched'||r.status==='validated');
+
+  root.innerHTML = `
+    <div class="page-header">
+      <div>
+        <div class="page-title" style="display:flex;align-items:center;gap:10px">
+          ${sectionIcon('resultValidation',24)} Result Validation Engine
+        </div>
+        <div class="page-subtitle">Reference range checks · Critical value alerts · Delta checks · Duplicate detection</div>
+      </div>
+    </div>
+
+    ${reviewable.length===0 ? `
+    <div class="panel"><div class="panel-body" style="text-align:center;padding:48px;color:var(--ink-soft)">
+      <div style="font-size:32px;margin-bottom:8px">✓</div>
+      <div style="font-size:14px;font-weight:600">No results pending validation</div>
+      <div class="muted-sm">Match incoming results first in Sample Matching.</div>
+    </div></div>` : ''}
+
+    ${reviewable.map(r=>{
+      const ana = analyzers.find(a=>a.id===r.analyzerId);
+      const gender = 'Male'; // would come from matched patient
+      const validations = E.validateResult(r, mappings, gender);
+      const criticals = validations.filter(v=>v.alerts.some(a=>a.severity==='critical'));
+      const warnings  = validations.filter(v=>v.alerts.some(a=>a.severity==='warn'));
+
+      return `
+      <div class="panel" style="margin-bottom:16px">
+        <div class="panel-header">
+          <div>
+            <div class="panel-title">
+              ${criticals.length>0?'<span style="color:#9A1F1F">⚠ CRITICAL — </span>':''}
+              ${esc(r.analyzerBarcode||r.analyzerSampleId||r.id)}
+            </div>
+            <div class="muted-sm">${esc(ana?ana.name:'Unknown analyzer')} · Received ${E.timeAgo(r.receivedAt)} · ${E.statusBadge(r.status)}</div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn" onclick="openResultDetail('${esc(r.id)}')">View raw</button>
+            ${r.status==='matched'?`<button class="btn primary" onclick="validateGatewayResult('${esc(r.id)}')">Validate & publish</button>`:''}
+          </div>
+        </div>
+        <div class="panel-body flush">
+          <table>
+            <thead><tr><th>Code</th><th>Test</th><th>Value</th><th>Unit</th><th>Flag</th><th>Checks</th></tr></thead>
+            <tbody>
+              ${validations.map(v=>{
+                const analyte = (r.analytes||[]).find(a=>a.code===v.code);
+                const worstSeverity = v.alerts.some(a=>a.severity==='critical') ? 'critical'
+                                    : v.alerts.some(a=>a.severity==='warn') ? 'warn'
+                                    : v.alerts.some(a=>a.severity==='error') ? 'error' : 'pass';
+                const rowColor = worstSeverity==='critical' ? '#FFF0F0' : worstSeverity==='warn' ? '#FFFBF0' : '';
+                return `<tr style="${rowColor?`background:${rowColor}`:``}">
+                  <td style="font-family:monospace;font-weight:600">${esc(v.code)}</td>
+                  <td>${esc(v.name||analyte?.name||'Unmapped')}</td>
+                  <td><b style="${worstSeverity==='critical'?'color:#9A1F1F':worstSeverity==='warn'?'color:#C77B14':''}">${esc(analyte?.value||'—')}</b></td>
+                  <td class="muted-sm">${esc(analyte?.unit||'—')}</td>
+                  <td>${analyte?.flag&&analyte.flag!=='N'?`<b style="color:${analyte.flag==='HH'||analyte.flag==='LL'?'#9A1F1F':'#C77B14'}">${esc(analyte.flag)}</b>`:'N'}</td>
+                  <td style="font-size:12px">
+                    ${v.alerts.map(a=>`<div style="color:${a.severity==='critical'?'#9A1F1F':a.severity==='warn'?'#C77B14':a.severity==='pass'?'#1F7A4D':'inherit'};margin-bottom:2px">${esc(a.message)}</div>`).join('')}
+                  </td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+    }).join('')}
+  `;
+}
+
+function validateGatewayResult(id){
+  const gs = window.GATEWAY_STATE||{};
+  const r = (gs.gatewayResults||[]).find(x=>x.id===id);
+  if(!r){ toast('Result not found',{type:'error'}); return; }
+  const mappings = gs.testMappings||[];
+  const validations = GatewayEngine.validateResult(r, mappings, 'Male');
+  const criticals = validations.filter(v=>v.alerts.some(a=>a.severity==='critical'));
+
+  if(criticals.length>0){
+    const codes = criticals.map(v=>v.code).join(', ');
+    if(!confirm(`⚠ CRITICAL VALUES detected in ${codes}.\n\nThis result will trigger critical value notifications. Proceed to publish?`)) return;
+  }
+
+  r.status = 'published';
+  r.publishedAt = new Date().toISOString();
+  toast(`Result published to patient record.${criticals.length>0?' Critical value alert sent.':''}`,{type:'success',duration:4000});
+  renderResultValidation(document.getElementById('content'));
+}
+
+function renderGatewayLogs(root){
+  const gs = window.GATEWAY_STATE || {};
+  const messages  = gs.gatewayMessages || [];
+  const analyzers = gs.analyzers || [];
+  const E = GatewayEngine;
+
+  root.innerHTML = `
+    <div class="page-header">
+      <div>
+        <div class="page-title" style="display:flex;align-items:center;gap:10px">
+          ${sectionIcon('gatewayLogs',24)} Communication Logs
+        </div>
+        <div class="page-subtitle">All analyzer messages, parse events, and sync audit trail</div>
+      </div>
+      <div class="actions">
+        <button class="btn" onclick="toast('Log export would download as CSV',{type:'info'})">Export CSV</button>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-bottom:16px">
+      <div class="panel-header"><div class="panel-title">Analyzer message log</div></div>
+      <div class="panel-body flush">
+        <table>
+          <thead><tr><th>Time</th><th>Analyzer</th><th>Dir</th><th>Protocol</th><th>Type</th><th>Status</th><th>Raw (truncated)</th></tr></thead>
+          <tbody>
+            ${messages.map(m=>{
+              const ana = analyzers.find(a=>a.id===m.analyzerId);
+              return `<tr onclick="openMessageDetail('${esc(m.id)}')">
+                <td class="muted-sm">${E.timeAgo(m.receivedAt)}</td>
+                <td class="muted-sm" style="font-size:12px">${esc(ana?ana.model:'Unknown')}</td>
+                <td><span class="chip ${m.direction==='IN'?'chip-info':'chip-ok'}">${m.direction}</span></td>
+                <td class="muted-sm">${esc(m.protocol||'—')}</td>
+                <td class="muted-sm" style="font-family:monospace;font-size:12px">${esc(m.messageType||'—')}</td>
+                <td>${m.parsed?'<span class="status completed">Parsed</span>':
+                     m.parseError?`<span class="status cancelled" title="${esc(m.parseError)}">Error</span>`:
+                     '<span class="status pending">Pending</span>'}</td>
+                <td class="muted-sm" style="font-family:monospace;font-size:11px;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                  ${esc((m.rawData||'').substring(0,80))}
+                </td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header"><div class="panel-title">Sync audit trail</div></div>
+      <div class="panel-body flush">
+        <table>
+          <thead><tr><th>Time</th><th>Event type</th><th>Sent</th><th>OK</th><th>Failed</th><th>Error detail</th></tr></thead>
+          <tbody>
+            ${(gs.syncLog||[]).map(s=>`<tr>
+              <td class="muted-sm">${E.timeAgo(s.syncedAt)}</td>
+              <td class="muted-sm">${esc(s.syncType)}</td>
+              <td>${s.recordsSent}</td>
+              <td style="color:#1F7A4D">${s.recordsOk}</td>
+              <td style="color:${s.recordsFailed>0?'#9A1F1F':'inherit'}">${s.recordsFailed}</td>
+              <td class="muted-sm" style="font-size:12px">${esc(s.error||'—')}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function openMessageDetail(id){
+  const gs = window.GATEWAY_STATE||{};
+  const m = (gs.gatewayMessages||[]).find(x=>x.id===id);
+  if(!m){ toast('Message not found',{type:'error'}); return; }
+  const ana = (gs.analyzers||[]).find(a=>a.id===m.analyzerId);
+  openModalWith(`
+    <div class="modal-header">
+      <div><div class="modal-title">Raw message — ${esc(m.messageType||m.protocol||'Unknown')}</div>
+        <div class="muted-sm">${esc(ana?ana.name:'Unknown analyzer')} · ${new Date(m.receivedAt).toLocaleString()}</div>
+      </div>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      ${m.parseError?`<div class="alert-banner danger" style="margin-bottom:12px"><span class="icon">⚠</span><div>${esc(m.parseError)}</div></div>`:''}
+      <label class="field-label">Raw frame</label>
+      <pre style="background:var(--bg-soft);padding:12px;border-radius:6px;font-size:12px;overflow-x:auto;white-space:pre-wrap;word-break:break-all;margin-top:4px;line-height:1.6">${esc(m.rawData||'(empty)')}</pre>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal()">Close</button>
+      <button class="btn" onclick="toast('Reparse queued',{type:'info'});closeModal()">Re-parse</button>
+    </div>
+  `);
+}
+
 function renderStaff(root){
   // Build the permission matrix live from the enforced RBAC_MATRIX so the
   // displayed grid always matches what the app actually enforces.
@@ -7514,6 +8310,19 @@ const SECTION_ICONS = {
   settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
   // Registered devices — laptop / device with stand
   devices: '<rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>',
+
+  // Instrument Gateway group icon — signal tower
+  gateway: '<line x1="12" y1="22" x2="12" y2="11"/><path d="M6 11a6 6 0 0 1 12 0"/><path d="M3 8a9 9 0 0 1 18 0"/><circle cx="12" cy="22" r="2" fill="currentColor" stroke="none"/>',
+  // Analyzers — CPU chip
+  analyzers: '<rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/>',
+  // Test mapping — code/transform arrows
+  testMapping: '<polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/>',
+  // Sample matching — barcode
+  sampleMatch: '<path d="M3 5v14"/><path d="M8 5v14"/><path d="M12 5v14"/><path d="M17 5v14"/><path d="M21 5v14"/>',
+  // Result validation — shield with check
+  resultValidation: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/>',
+  // Gateway logs — list with signal
+  gatewayLogs: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>',
 
   // ── Additional module-tree icons ──
   appointments: '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><circle cx="12" cy="15" r="2"/>',
@@ -12108,6 +12917,212 @@ function openModal(type){
         <button class="btn primary" onclick="submitInviteStaff()">Send invites</button>
       </div>
     `;
+  } else if(type==='add-analyzer'){
+    const drivers = Object.entries(window.ANALYZER_DRIVERS || {});
+    html = `
+      <div class="modal-header">
+        <div>
+          <div class="modal-title">Register analyzer</div>
+          <div class="muted-sm">Add a laboratory instrument to the Gateway</div>
+        </div>
+        <button class="modal-close" onclick="closeModal()" aria-label="Close">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="field" style="grid-column:span 2">
+            <label>Analyzer name <span class="req">*</span></label>
+            <input id="ana-name" class="input" placeholder="e.g. Mindray BC-5000 (Hematology Bench 1)">
+          </div>
+          <div class="field">
+            <label>Vendor <span class="req">*</span></label>
+            <input id="ana-vendor" class="input" placeholder="e.g. Mindray, Sysmex, Roche">
+          </div>
+          <div class="field">
+            <label>Model <span class="req">*</span></label>
+            <input id="ana-model" class="input" placeholder="e.g. BC-5000">
+          </div>
+          <div class="field">
+            <label>Serial number</label>
+            <input id="ana-serial" class="input" placeholder="e.g. BC5K-2024-0042">
+          </div>
+          <div class="field">
+            <label>Department</label>
+            <select id="ana-dept" class="input">
+              <option>Hematology</option><option>Clinical Chemistry</option><option>Microbiology</option>
+              <option>Immunology</option><option>Histopathology</option><option>Molecular</option>
+              <option>Blood Bank</option><option>Coagulation</option><option>Urinalysis</option><option>Other</option>
+            </select>
+          </div>
+          <div class="field" style="grid-column:span 2">
+            <label>Driver <span class="req">*</span></label>
+            <select id="ana-driver" class="input" onchange="onAnalyzerDriverChange(this.value)">
+              ${drivers.map(([k,d])=>`<option value="${esc(k)}">${esc(d.label)} — ${esc(d.protocol)}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+
+        <div style="border-top:1px solid var(--line);margin:16px 0;padding-top:16px">
+          <div style="font-weight:600;font-size:13px;margin-bottom:12px">Connection</div>
+          <div class="form-grid">
+            <div class="field" style="grid-column:span 2">
+              <label>Connection type <span class="req">*</span></label>
+              <select id="ana-conn" class="input" onchange="onAnalyzerConnChange(this.value)">
+                <option value="TCP">TCP/IP Network</option>
+                <option value="RS232">RS-232 Serial</option>
+                <option value="USB">USB Serial</option>
+                <option value="FILE">File Watch (CSV/TXT/XML)</option>
+              </select>
+            </div>
+            <div id="conn-tcp" style="grid-column:span 2;display:grid;grid-template-columns:1fr 1fr;gap:12px">
+              <div class="field"><label>IP address <span class="req">*</span></label><input id="ana-ip" class="input" placeholder="192.168.1.101"></div>
+              <div class="field"><label>Port <span class="req">*</span></label><input id="ana-port" class="input" type="number" value="5000"></div>
+            </div>
+            <div id="conn-serial" style="grid-column:span 2;display:none;display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px">
+              <div class="field"><label>COM port</label><input id="ana-com" class="input" placeholder="COM3"></div>
+              <div class="field"><label>Baud rate</label>
+                <select id="ana-baud" class="input">
+                  <option>1200</option><option>2400</option><option>4800</option>
+                  <option selected>9600</option><option>19200</option><option>38400</option><option>115200</option>
+                </select>
+              </div>
+              <div class="field"><label>Parity</label>
+                <select id="ana-parity" class="input"><option>None</option><option>Even</option><option>Odd</option></select>
+              </div>
+              <div class="field"><label>Stop bits</label>
+                <select id="ana-stop" class="input"><option>1</option><option>1.5</option><option>2</option></select>
+              </div>
+            </div>
+            <div id="conn-file" style="grid-column:span 2;display:none">
+              <div class="field"><label>Watch folder path</label><input id="ana-path" class="input" placeholder="C:\\LabData\\Results\\"></div>
+              <div class="field"><label>File pattern</label><input id="ana-pattern" class="input" placeholder="*.txt" value="*.txt"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Notes</label>
+          <textarea id="ana-notes" class="input" rows="2" placeholder="Optional notes about this analyzer…"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="closeModal()">Cancel</button>
+        <button class="btn primary" onclick="submitAddAnalyzer()">Register analyzer</button>
+      </div>
+    `;
+
+  } else if(type==='add-mapping'){
+    const analyzers = (window.GATEWAY_STATE||{}).analyzers || [];
+    html = `
+      <div class="modal-header">
+        <div>
+          <div class="modal-title">Add test mapping</div>
+          <div class="muted-sm">Map an analyzer result code to a LabOS test</div>
+        </div>
+        <button class="modal-close" onclick="closeModal()" aria-label="Close">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="field">
+            <label>Analyzer code <span class="req">*</span></label>
+            <input id="map-ana-code" class="input" placeholder="e.g. WBC, GLU, HGB" style="font-family:monospace">
+          </div>
+          <div class="field">
+            <label>LabOS test code <span class="req">*</span></label>
+            <input id="map-lab-code" class="input" placeholder="e.g. WBC, GLUC, HGB" style="font-family:monospace">
+          </div>
+          <div class="field" style="grid-column:span 2">
+            <label>LabOS test name <span class="req">*</span></label>
+            <input id="map-lab-name" class="input" placeholder="e.g. White Blood Cell Count">
+          </div>
+          <div class="field">
+            <label>Unit</label>
+            <input id="map-unit" class="input" placeholder="e.g. ×10⁹/L, g/dL, mmol/L">
+          </div>
+          <div class="field">
+            <label>Decimal places</label>
+            <input id="map-dp" class="input" type="number" value="2" min="0" max="6">
+          </div>
+          <div class="field"><label>Ref range low (Male)</label><input id="map-rlm" class="input" type="number" placeholder="4.0"></div>
+          <div class="field"><label>Ref range high (Male)</label><input id="map-rhm" class="input" type="number" placeholder="11.0"></div>
+          <div class="field"><label>Ref range low (Female)</label><input id="map-rlf" class="input" type="number" placeholder="4.0"></div>
+          <div class="field"><label>Ref range high (Female)</label><input id="map-rhf" class="input" type="number" placeholder="11.0"></div>
+          <div class="field"><label>Critical low</label><input id="map-cl" class="input" type="number" placeholder="Optional"></div>
+          <div class="field"><label>Critical high</label><input id="map-ch" class="input" type="number" placeholder="Optional"></div>
+          <div class="field" style="grid-column:span 2">
+            <label>Applies to analyzers (leave blank for Global)</label>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px">
+              ${analyzers.map(a=>`
+                <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+                  <input type="checkbox" class="ana-checkbox" value="${esc(a.id)}">
+                  ${esc(a.model)}
+                </label>`).join('')}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="closeModal()">Cancel</button>
+        <button class="btn primary" onclick="submitAddMapping()">Add mapping</button>
+      </div>
+    `;
+
+  } else if(type==='log-calibration'){
+    const analyzers = (window.GATEWAY_STATE||{}).analyzers || [];
+    html = `
+      <div class="modal-header">
+        <div>
+          <div class="modal-title">Log calibration</div>
+          <div class="muted-sm">Record a calibration event for an analyzer</div>
+        </div>
+        <button class="modal-close" onclick="closeModal()" aria-label="Close">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="field" style="grid-column:span 2">
+            <label>Analyzer <span class="req">*</span></label>
+            <select id="cal-analyzer" class="input">
+              ${analyzers.map(a=>`<option value="${esc(a.id)}">${esc(a.name)}</option>`).join('')}
+            </select>
+          </div>
+          <div class="field">
+            <label>Calibrated by <span class="req">*</span></label>
+            <input id="cal-by" class="input" placeholder="Name of scientist performing calibration">
+          </div>
+          <div class="field">
+            <label>Date calibrated <span class="req">*</span></label>
+            <input id="cal-date" class="input" type="date" value="${new Date().toISOString().slice(0,10)}">
+          </div>
+          <div class="field">
+            <label>Calibrator lot number</label>
+            <input id="cal-lot" class="input" placeholder="e.g. MBC-2026-04">
+          </div>
+          <div class="field">
+            <label>Next calibration due</label>
+            <input id="cal-next" class="input" type="date">
+          </div>
+          <div class="field" style="grid-column:span 2">
+            <label>Outcome <span class="req">*</span></label>
+            <div style="display:flex;gap:16px;margin-top:8px">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                <input type="radio" name="cal-outcome" value="passed" checked> Passed
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                <input type="radio" name="cal-outcome" value="failed"> Failed
+              </label>
+            </div>
+          </div>
+          <div class="field" style="grid-column:span 2">
+            <label>Notes</label>
+            <textarea id="cal-notes" class="input" rows="3" placeholder="Describe any issues, parameter deviations, or corrective actions taken…"></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="closeModal()">Cancel</button>
+        <button class="btn primary" onclick="submitLogCalibration()">Log calibration</button>
+      </div>
+    `;
+
   } else if(type==='real-signin'){
     html = `
       <div class="modal-header">
@@ -15231,6 +16246,14 @@ const NAV_GROUPS = {
       {route:'cohorts',         label:'Cohort Management',   icon:SECTION_ICONS.cohort,        gateModule:'research'},
       {route:'genomicResearch', label:'Genomic Research',    icon:SECTION_ICONS.genomics,      gateModule:'research'}
     ]},
+    {title:'Instrument Gateway', icon:SECTION_ICONS.gateway, items:[
+      {route:'gatewayDashboard', label:'Gateway Dashboard',   icon:SECTION_ICONS.gateway,          adminOnly:true},
+      {route:'analyzers',        label:'Analyzer Management', icon:SECTION_ICONS.analyzers,         adminOnly:true},
+      {route:'testMapping',      label:'Test Mapping Engine', icon:SECTION_ICONS.testMapping,       adminOnly:true},
+      {route:'sampleMatching',   label:'Sample Matching',     icon:SECTION_ICONS.sampleMatch,       adminOnly:true},
+      {route:'resultValidation', label:'Result Validation',   icon:SECTION_ICONS.resultValidation,  adminOnly:true},
+      {route:'gatewayLogs',      label:'Communication Logs',  icon:SECTION_ICONS.gatewayLogs,       adminOnly:true}
+    ]},
     {title:'Administration', icon:SECTION_ICONS.settings, items:[
       {route:'tenantProfile', label:'Organization Settings', icon:SECTION_ICONS.profile,      adminOnly:true},
       {route:'settings',      label:'Branch Management',      icon:SECTION_ICONS.branches,     adminOnly:true},
@@ -17277,6 +18300,114 @@ function onbContactProvisioning(){
 // deployment this button would lead to a server-authenticated admin login;
 // here it is an explicit, clearly-labelled door (the frontend cannot enforce
 // real auth on its own).
+// ── Instrument Gateway modal helpers ──────────────────────────────────────────
+
+function onAnalyzerConnChange(val){
+  const tcp    = document.getElementById('conn-tcp');
+  const serial = document.getElementById('conn-serial');
+  const file   = document.getElementById('conn-file');
+  if(tcp)    tcp.style.display    = val === 'TCP'  ? 'grid' : 'none';
+  if(serial) serial.style.display = (val === 'RS232' || val === 'USB') ? 'grid' : 'none';
+  if(file)   file.style.display   = val === 'FILE' ? 'block' : 'none';
+}
+
+function onAnalyzerDriverChange(driverKey){
+  const drivers = window.ANALYZER_DRIVERS || {};
+  const d = drivers[driverKey];
+  if(!d) return;
+  // Auto-select first supported connection type
+  const connSel = document.getElementById('ana-conn');
+  if(connSel && d.connections && d.connections.length){
+    connSel.value = d.connections[0];
+    onAnalyzerConnChange(d.connections[0]);
+  }
+}
+
+function submitAddAnalyzer(){
+  const name   = $v('ana-name');
+  const vendor = $v('ana-vendor');
+  const model  = $v('ana-model');
+  const conn   = document.getElementById('ana-conn')?.value;
+  if(!name || !vendor || !model){
+    toast('Please fill in Name, Vendor, and Model.', {type:'warn', title:'Required fields'}); return;
+  }
+  const gs = window.GATEWAY_STATE || (window.GATEWAY_STATE = {analyzers:[]});
+  const id = 'ANA-' + String(Math.floor(Math.random()*9000)+1000);
+  const port = conn === 'TCP'
+    ? { type:'TCP', ip: $v('ana-ip')||'', port: parseInt($v('ana-port'))||5000 }
+    : conn === 'FILE'
+    ? { type:'FILE', watchPath: $v('ana-path')||'', filePattern: $v('ana-pattern')||'*.txt' }
+    : { type:conn, comPort: $v('ana-com')||'COM1', baudRate: parseInt(document.getElementById('ana-baud')?.value)||9600,
+        dataBits:8, stopBits: document.getElementById('ana-stop')?.value||'1',
+        parity: document.getElementById('ana-parity')?.value||'None' };
+  const newAnalyzer = {
+    id, name, vendor, model,
+    serialNumber: $v('ana-serial') || '',
+    department:   document.getElementById('ana-dept')?.value || 'Other',
+    protocol:     (window.ANALYZER_DRIVERS[document.getElementById('ana-driver')?.value]||{}).protocol || 'ASTM',
+    driver:       document.getElementById('ana-driver')?.value || 'generic_astm',
+    notes:        $v('ana-notes') || '',
+    status:'offline', lastSeen:null, lastResultAt:null, resultCount:0, errorCount:0, active:true, port
+  };
+  gs.analyzers = gs.analyzers || [];
+  gs.analyzers.push(newAnalyzer);
+  closeModal();
+  toast(`${name} registered successfully. Install the LabOS Gateway agent on the instrument PC to activate the connection.`,
+        {type:'success', title:'Analyzer registered', duration:6000});
+  navigate('analyzers');
+}
+
+function submitAddMapping(){
+  const anaCode  = $v('map-ana-code');
+  const labCode  = $v('map-lab-code');
+  const labName  = $v('map-lab-name');
+  if(!anaCode || !labCode || !labName){
+    toast('Analyzer code, LabOS code, and test name are required.', {type:'warn'}); return;
+  }
+  const gs = window.GATEWAY_STATE || (window.GATEWAY_STATE = {testMappings:[]});
+  gs.testMappings = gs.testMappings || [];
+  const checkedIds = Array.from(document.querySelectorAll('.ana-checkbox:checked')).map(el=>el.value);
+  const id = 'TM-' + String(Math.floor(Math.random()*9000)+1000).padStart(3,'0');
+  gs.testMappings.push({
+    id, analyzerCode: anaCode.trim().toUpperCase(),
+    labosCode: labCode.trim().toUpperCase(),
+    labosName, unit: $v('map-unit')||'',
+    decimalPlaces: parseInt($v('map-dp'))||2,
+    refLowM:  parseFloat($v('map-rlm'))||null, refHighM: parseFloat($v('map-rhm'))||null,
+    refLowF:  parseFloat($v('map-rlf'))||null, refHighF: parseFloat($v('map-rhf'))||null,
+    critLow:  parseFloat($v('map-cl'))||null,  critHigh: parseFloat($v('map-ch'))||null,
+    analyzerIds: checkedIds
+  });
+  closeModal();
+  toast(`Mapping ${anaCode} → ${labName} added.`, {type:'success', title:'Mapping saved'});
+  navigate('testMapping');
+}
+
+function submitLogCalibration(){
+  const analyzerId = document.getElementById('cal-analyzer')?.value;
+  const calBy      = $v('cal-by');
+  const calDate    = $v('cal-date');
+  if(!analyzerId || !calBy || !calDate){
+    toast('Analyzer, calibrated by, and date are required.', {type:'warn'}); return;
+  }
+  const gs = window.GATEWAY_STATE || (window.GATEWAY_STATE = {calibrationLog:[]});
+  gs.calibrationLog = gs.calibrationLog || [];
+  const passed = document.querySelector('input[name="cal-outcome"]:checked')?.value !== 'failed';
+  gs.calibrationLog.push({
+    id: 'CAL-' + Date.now(),
+    analyzerId,
+    calibratedBy:  calBy,
+    calibratedAt:  new Date(calDate).toISOString(),
+    nextDueAt:     $v('cal-next') ? new Date($v('cal-next')).toISOString() : null,
+    calibratorLot: $v('cal-lot') || '',
+    passed,
+    notes: $v('cal-notes') || ''
+  });
+  closeModal();
+  toast(`Calibration logged — ${passed ? 'Passed ✓' : 'Failed — corrective action required'}`,
+        {type: passed ? 'success' : 'error', title:'Calibration recorded', duration:4000});
+}
+
 // Real Supabase Auth sign-in (shown when LABOS_CONFIG is set).
 async function submitRealSignIn(){
   const email    = $v('signin-email')    || '';

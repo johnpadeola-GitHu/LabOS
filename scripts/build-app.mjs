@@ -25,6 +25,8 @@ const LAYERS = [
   'src/core/qc-engine.js',
   'src/core/session-compliance.js',
   'src/core/rbac.js',
+  'src/core/gateway-parsers.js',
+  'src/core/instrument-gateway.js',
   'src/app/app.views.js',
   'src/core/api.js',
   'src/core/data-mode.js',
