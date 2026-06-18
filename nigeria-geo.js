@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=5.0" />
+  <meta name="theme-color" content="#2F4A6D" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#1A2E48" media="(prefers-color-scheme: dark)">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="LabOS">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="LabOS">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="application-name" content="LabOS by AgoroX">
+  <meta name="format-detection" content="telephone=no">
+  <meta name="msapplication-TileColor" content="#2F4A6D">
+  <meta name="description" content="LabOS by AgoroX Technologies — multi-tenant laboratory operations platform for African clinical laboratories.">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <title>LabOS by AgoroX Technologies — Laboratory Operations Platform</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles/labos.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+<a href="#main-content" class="skip-to-main">Skip to main content</a>
+
+<div id="onboarding-root"></div>
+<div id="toast-root" role="region" aria-live="polite" aria-atomic="false" aria-label="Notifications"></div>
+
+<div class="app" id="app">
+
+  <aside class="sidebar">
+    <div class="brand" id="brand-block">
+      <div class="brand-mark" id="brand-mark">L</div>
+      <div class="brand-text">
+        <div class="brand-name" id="brand-name">LabOS</div>
+        <div class="brand-sub" id="brand-sub">Powered by AgoroX Technologies</div>
+      </div>
+      <button class="sidebar-collapse-btn" id="sidebar-collapse-btn" onclick="toggleSidebarCollapse()" title="Collapse sidebar" aria-label="Collapse sidebar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+    </div>
+
+    <div class="branch-switcher" id="branch-switcher" onclick="openCentreSwitcher()" style="cursor:pointer">
+      <div class="lbl" id="branch-lbl">Active centre</div>
+      <div class="val">
+        <span id="branch-val">Ikeja Head Office</span>
+        <svg class="ic" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+    </div>
+
+    <nav id="sidebar-nav" role="navigation" aria-label="Main navigation"></nav>
+
+    <div class="sidebar-width-control" id="sidebar-width-control">
+      <span class="sidebar-width-lbl">Nav width</span>
+      <div class="sidebar-width-stepper">
+        <button type="button" class="sidebar-width-step" data-dir="-" onclick="nudgeSidebarWidth(-24)" title="Narrower" aria-label="Narrower">−</button>
+        <span class="sidebar-width-val" id="sidebar-width-val">240</span>
+        <button type="button" class="sidebar-width-step" data-dir="+" onclick="nudgeSidebarWidth(24)" title="Wider" aria-label="Wider">+</button>
+      </div>
+    </div>
+
+    <div class="user-card" id="user-card">
+      <div class="avatar">AO</div>
+      <div class="user-info">
+        <div class="name">Dr. Ade Ogundimu</div>
+        <div class="role">Laboratory Director</div>
+      </div>
+    </div>
+  </aside>
+
+  <div class="sidebar-resizer" id="sidebar-resizer" title="Drag to resize · double-click to reset" role="separator" aria-orientation="vertical" tabindex="0" aria-label="Resize navigation"></div>
+
+  <div class="sidebar-backdrop" id="sidebar-backdrop" onclick="closeSidebar()"></div>
+
+  <main class="main" id="main-content" role="main" tabindex="-1">
+    <header class="topbar">
+      <button class="hamburger" id="hamburger" onclick="toggleSidebar()" aria-label="Menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <div class="crumb">LabOS <span class="muted-sm" style="font-weight:400;letter-spacing:0">by AgoroX</span> &nbsp;›&nbsp; <b id="crumb-page">Dashboard</b></div>
+      <div class="top-search" onclick="openCommandPalette()">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" placeholder="Search patients, requests, pages…  (⌘K)" readonly style="cursor:pointer" />
+      </div>
+      <div class="top-actions">
+        <span class="offline-pill"><span class="pulse"></span>Online · Synced</span>
+        <span class="licence-pill" id="licence-pill" onclick="navigate('devices')" title="Licence status — click for devices"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Verifying…</span>
+        <button class="icon-btn" id="notif-bell-btn" title="Notifications" aria-label="Notifications" aria-haspopup="true" onclick="toggleNotifPanel()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          <span class="dot" id="notif-dot"></span>
+        </button>
+      </div>
+    </header>
+
+    <div class="content" id="content"></div>
+  </main>
+</div>
+
+<div id="modal-root"></div>
+<div id="notif-panel" role="dialog" aria-modal="false" aria-label="Notifications" style="display:none"></div>
+
+
+  <!-- Bundled application (built from src/ layers by scripts/build-app.mjs) -->
+  <script src="/labos.bundle.js"></script>
+
+  <!--
+    Supabase credentials are injected at build time from environment variables.
+    Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Cloudflare Pages
+    (Settings → Environment Variables) — never commit real keys to GitHub.
+    When the variables are not set the app runs in local demo mode.
+  -->
+  <script>
+    window.LABOS_CONFIG = {
+      supabaseUrl:     'https://cgwxdjpgggpmanhjecpm.supabase.co',
+      supabaseAnonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnd3hkanBnZ2dwbWFuaGplY3BtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA2NzA0MTcsImV4cCI6MjA5NjI0NjQxN30.Qc9hz8LkkVgCuZ25oOCJuTamAC9aCK8hM57DEG-k2mk'
+    };
+  </script>
+
+  <!-- Supabase is initialised inline by the bundle when LABOS_CONFIG is set. -->
+</body>
+</html>

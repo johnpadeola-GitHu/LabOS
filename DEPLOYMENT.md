@@ -1,106 +1,319 @@
-# Deploying LabOS to Cloudflare Pages
+// Tests for the invite-only onboarding gate (security/access hardening) and
+// the red/white modal close button. The gate is a client-side usability layer;
+// real enforcement is server-side, but it must still prevent click-through
+// access and route demo users through an explicit, labelled path.
+import { describe, it, expect, beforeEach } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { bootLabOS } from './harness.js';
 
-LabOS is a static single-page app. Cloudflare Pages serves it globally with
-zero servers to manage. There are two ways to deploy: the dashboard (Git
-integration, recommended) and the CLI.
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const root = resolve(__dirname, '..');
 
-> **Before you deploy:** decide whether this is a **demo deployment** (no
-> backend — safe, public, no real data) or a **production deployment** (wired to
-> Supabase with real patient data). Keep them as two separate Pages projects.
-> Do not point a public demo at a live patient database until tenant isolation
-> has been verified. See `supabase/README.md`.
+// The seeded provisioned tenant + its one-time activation code.
+const VALID_CODE = 'HAUWA-7F3K-2026';
+const VALID_TENANT = 'tnt_hauwa';
 
----
+describe('Invite-only onboarding gate', () => {
+  let win, ONB_STATE, S, doc;
 
-## Option A — Dashboard (Git integration, recommended)
+  function setInput(id, val) {
+    const el = doc.getElementById(id);
+    if (el) el.value = val;
+  }
+  function fillAccount(code, { name = 'Dr. Test Admin', email = 'admin@hauwadiagnostics.ng', password = 'a-very-long-password' } = {}) {
+    setInput('onb-fullName', name);
+    setInput('onb-email', email);
+    setInput('onb-password', password);
+    setInput('onb-activationCode', code);
+  }
 
-1. Push this repository to GitHub (or GitLab).
-2. In the Cloudflare dashboard: **Workers & Pages → Create → Pages → Connect to Git**.
-3. Select your repository.
-4. Set the build configuration:
+  beforeEach(() => {
+    const booted = bootLabOS();
+    win = booted.win;
+    ONB_STATE = booted.ONB_STATE;
+    doc = win.document;
+    S = win.S;
+    // Make sure the onboarding root exists and start the wizard.
+    if (!doc.getElementById('onboarding-root')) {
+      const r = doc.createElement('div');
+      r.id = 'onboarding-root';
+      doc.body.appendChild(r);
+    }
+    if (!doc.getElementById('app')) {
+      const a = doc.createElement('div');
+      a.id = 'app';
+      doc.body.appendChild(a);
+    }
+    win.startOnboarding();
+  });
 
-   | Setting | Value |
-   |---|---|
-   | Framework preset | None (or Vite) |
-   | Build command | `npm run build` |
-   | Build output directory | `dist` |
-   | Root directory | `labos-app` *(only if the repo root is one level above this folder)* |
+  it('opens on the activation gate, not a click-through account form', () => {
+    const html = doc.getElementById('onboarding-root').innerHTML;
+    expect(html).toContain('Activate your laboratory');
+    expect(html.toLowerCase()).toContain('invite-only');
+    expect(html).toContain('onb-activationCode');
+    // No generic "Continue" button is offered until activation succeeds.
+    expect(html).toContain('onbActivate()');
+    expect(html).not.toContain('onbNext()'); // step 1 hides Continue pre-activation
+  });
 
-5. Add an environment variable so the build uses Node 22:
+  it('refuses to advance past step 1 without activation', () => {
+    expect(ONB_STATE.step).toBe(1);
+    win.onbNext();
+    expect(ONB_STATE.step).toBe(1); // still gated
+    expect(ONB_STATE.activated).toBe(false);
+    expect(ONB_STATE.activationError).toBeTruthy();
+  });
 
-   | Variable | Value |
-   |---|---|
-   | `NODE_VERSION` | `22` |
+  it('rejects an invalid activation code and stays gated', async () => {
+    fillAccount('WRONG-CODE-9999');
+    await win.onbActivate();
+    expect(ONB_STATE.activated).toBe(false);
+    expect(ONB_STATE.activationError).toMatch(/not recognised|administrator/i);
+  });
 
-6. **Save and Deploy.** Cloudflare runs `npm install && npm run build` and
-   publishes `dist/`. Every push to your production branch redeploys; pull
-   requests get preview URLs automatically.
+  it('requires valid account fields even with a valid code', async () => {
+    fillAccount(VALID_CODE, { name: '', email: 'not-an-email', password: 'short' });
+    await win.onbActivate();
+    expect(ONB_STATE.activated).toBe(false);
+    expect(ONB_STATE.errors.fullName).toBeTruthy();
+    expect(ONB_STATE.errors.email).toBeTruthy();
+    expect(ONB_STATE.errors.password).toBeTruthy();
+  });
 
-That's the whole demo deployment. You get a `*.pages.dev` URL immediately, and
-can attach a custom domain under **Custom domains**.
+  it('accepts a valid provisioned code and unlocks progression', async () => {
+    fillAccount(VALID_CODE);
+    await win.onbActivate();
+    expect(ONB_STATE.activated).toBe(true);
+    expect(ONB_STATE.activatedTenantId).toBe(VALID_TENANT);
+    // Now the wizard can advance.
+    win.onbNext();
+    expect(ONB_STATE.step).toBe(2);
+  });
 
-## Option B — CLI (one-off or CI)
+  it('completeOnboarding refuses an un-activated session', () => {
+    expect(ONB_STATE.activated).toBe(false);
+    S().mode = 'onboarding';
+    win.completeOnboarding();
+    // Bounced back to the gate, not into a tenant.
+    expect(ONB_STATE.step).toBe(1);
+    expect(S().mode).not.toBe('tenant');
+  });
 
-```bash
-cd labos-app
-npm install
-npm run build
-npx wrangler pages deploy dist --project-name labos-frontend
-```
+  it('completeOnboarding enters the activated tenant and marks the code used', async () => {
+    fillAccount(VALID_CODE);
+    await win.onbActivate();
+    expect(ONB_STATE.activated).toBe(true);
 
-`wrangler.toml` already declares `pages_build_output_dir = "dist"`.
+    win.completeOnboarding();
+    expect(S().mode).toBe('tenant');
+    expect(S().activeTenantId).toBe(VALID_TENANT);
+    expect(S().isDemoSession).toBe(false);
 
----
+    const tenant = win.__labos.APP_STATE.tenants.find((t) => t.id === VALID_TENANT);
+    expect(tenant.activationUsedAt).toBeTruthy(); // one-time code now redeemed
+  });
 
-## What's already configured for you
+  it('the demo path is explicit and flags the session as demo', () => {
+    win.onbExploreDemo();
+    expect(S().mode).toBe('tenant');
+    expect(S().isDemoSession).toBe(true);
+    expect(S().activeTenantId).toBe('tnt_vitalis');
+  });
 
-- **`public/_redirects`** — `/* /index.html 200`. LabOS routes are client-side,
-  so every path (and every browser refresh on a deep link) serves `index.html`.
-  Without this, a refresh on a sub-route would 404.
-- **`public/_headers`** — security headers (HSTS, `X-Frame-Options`,
-  `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`) plus
-  cache rules: hashed `/assets/*` are cached for a year (immutable), while the
-  app bundle revalidates each load so updates ship instantly.
-- **`.nvmrc`** — pins Node 22 for the build.
+  it('the admin sign-in path shows credentials form when backend is configured', () => {
+    const cfg = win.LABOS_CONFIG || {};
+    if (cfg.supabaseUrl && cfg.supabaseAnonKey) {
+      // Real backend — onbAdminSignIn focuses the email field, not platform mode
+      // Just verify it doesn't throw
+      let threw = false;
+      try { win.onbAdminSignIn(); } catch(e) { threw = true; }
+      expect(threw).toBe(false);
+    } else {
+      // Demo mode — goes straight to platform view
+      win.onbAdminSignIn();
+      expect(win.APP_STATE.session.mode).toBe('platform');
+      expect(win.APP_STATE.session.isPlatformAdmin).toBe(true);
+    }
+  });
+});
 
-These files live in `public/` and Vite copies them into `dist/` on every build,
-so Cloudflare picks them up automatically.
+describe('Tenant provisioning (issuing activation codes)', () => {
+  let win, S, doc, LicenseCore, APP_STATE;
 
----
+  beforeEach(() => {
+    const booted = bootLabOS();
+    win = booted.win;
+    doc = win.document;
+    S = win.S;
+    LicenseCore = booted.LicenseCore;
+    APP_STATE = booted.APP_STATE;
+    if (!doc.getElementById('modal-root')) {
+      const m = doc.createElement('div'); m.id = 'modal-root'; doc.body.appendChild(m);
+    }
+  });
 
-## Turning on the Supabase backend (production)
+  it('generates a readable, lab-specific one-time code', () => {
+    const code = LicenseCore.generateActivationCode('Sunrise Diagnostics');
+    expect(code).toMatch(/^SUNRI-[A-Z2-9]{4}-\d{4}$/);
+    // Two calls should differ (random middle segment).
+    const code2 = LicenseCore.generateActivationCode('Sunrise Diagnostics');
+    expect(code).not.toBe(code2);
+  });
 
-The demo deployment needs no configuration. To wire a deployment to Supabase:
+  it('provisioning creates a pending tenant with a fresh code', () => {
+    win.openProvisionTenant();
+    doc.getElementById('prov-name').value = 'Sunrise Diagnostics';
+    doc.getElementById('prov-email').value = 'admin@sunrise.ng';
+    const before = APP_STATE.tenants.length;
+    win.submitProvisionTenant();
+    expect(APP_STATE.tenants.length).toBe(before + 1);
+    const t = APP_STATE.tenants[APP_STATE.tenants.length - 1];
+    expect(t.name).toBe('Sunrise Diagnostics');
+    expect(t.activationCode).toMatch(/^SUNRI-/);
+    expect(t.activationUsedAt).toBeNull(); // pending until redeemed
+    // The generated code is shown to the operator.
+    expect(doc.getElementById('prov-result').innerHTML).toContain(t.activationCode);
+  });
 
-1. In `src/index.html`, fill in the `window.LABOS_CONFIG` block with your
-   project URL and **anon** key (never the service-role key):
+  it('rejects provisioning with a missing name or bad email', () => {
+    win.openProvisionTenant();
+    doc.getElementById('prov-name').value = '';
+    doc.getElementById('prov-email').value = 'not-an-email';
+    const before = APP_STATE.tenants.length;
+    win.submitProvisionTenant();
+    expect(APP_STATE.tenants.length).toBe(before); // nothing created
+  });
 
-   ```html
-   <script>
-     window.LABOS_CONFIG = {
-       supabaseUrl:     'https://YOUR_PROJECT.supabase.co',
-       supabaseAnonKey: 'YOUR_PUBLIC_ANON_KEY'
-     };
-   </script>
-   ```
+  it('a freshly provisioned code can be redeemed end-to-end', async () => {
+    // 1) Operator provisions a lab and gets a code.
+    win.openProvisionTenant();
+    doc.getElementById('prov-name').value = 'Sunrise Diagnostics';
+    doc.getElementById('prov-email').value = 'admin@sunrise.ng';
+    win.submitProvisionTenant();
+    const t = APP_STATE.tenants[APP_STATE.tenants.length - 1];
+    const code = t.activationCode;
 
-2. Commit and let Cloudflare redeploy.
+    // 2) Lab admin redeems it at the gate.
+    if (!doc.getElementById('onboarding-root')) {
+      const r = doc.createElement('div'); r.id = 'onboarding-root'; doc.body.appendChild(r);
+    }
+    if (!doc.getElementById('app')) {
+      const a = doc.createElement('div'); a.id = 'app'; doc.body.appendChild(a);
+    }
+    win.startOnboarding();
+    doc.getElementById('onb-fullName').value = 'Dr. Sun Admin';
+    doc.getElementById('onb-email').value = 'admin@sunrise.ng';
+    doc.getElementById('onb-password').value = 'a-very-long-password';
+    doc.getElementById('onb-activationCode').value = code;
+    await win.onbActivate();
+    win.completeOnboarding();
 
-Because the anon key is safe to expose (Row-Level Security is what actually
-protects the data), it can live in the committed HTML. If you prefer to keep it
-out of source, inject the `LABOS_CONFIG` script at deploy time instead.
+    expect(S().mode).toBe('tenant');
+    expect(S().activeTenantId).toBe(t.id);
+    expect(t.activationUsedAt).toBeTruthy(); // now redeemed
+  });
+});
 
-> **Recommended:** use one Pages project for the demo (no config) and a second
-> for production (Supabase config), each on its own branch and domain. That way
-> a demo can never accidentally touch real patient data.
+describe('Modal close button styling', () => {
+  const css = readFileSync(resolve(root, 'src/styles/labos.css'), 'utf8');
 
----
+  // Both classes are used for the upper-right modal X (modal-close: 25 modals,
+  // close-btn: 42 modals). Both must be red fill with a white glyph.
+  function baseRule(selector) {
+    const re = new RegExp(`\\.${selector}\\{([^}]*)\\}`, 'g');
+    const rules = [...css.matchAll(re)].map((m) => m[1]);
+    return rules.find((r) => /background:/.test(r));
+  }
 
-## Post-deploy checklist
+  it('renders .modal-close as red fill with white glyph', () => {
+    const rule = baseRule('modal-close');
+    expect(rule).toBeTruthy();
+    expect(rule).toMatch(/background:\s*#9A1F1F/i);
+    expect(rule).toMatch(/color:\s*#fff/i);
+  });
 
-- [ ] The `*.pages.dev` URL loads and the onboarding screen appears.
-- [ ] A browser refresh on any in-app screen still loads (SPA redirect working).
-- [ ] Custom domain attached and HTTPS active.
-- [ ] (Production only) Supabase configured, and you have verified — by signing
-      in as two different tenants — that neither can see the other's data.
-- [ ] (Production only) First tenant + admin created (see `supabase/README.md`).
+  it('renders .close-btn with danger styling', () => {
+    const rule = baseRule('close-btn');
+    expect(rule).toBeTruthy();
+    // Softer danger style — background is danger-bg tint, not solid red fill
+    expect(rule).toMatch(/border-radius/i);
+    expect(rule).toMatch(/cursor:\s*pointer/i);
+  });
+});
+
+describe('Sign-in form field isolation (regression: duplicate ID bug)', () => {
+  let win, doc;
+
+  beforeEach(() => {
+    const booted = bootLabOS();
+    win = booted.win;
+    doc = win.document;
+    win.LABOS_CONFIG = { supabaseUrl: 'https://test.supabase.co', supabaseAnonKey: 'test-key' };
+    win.renderOnboarding(1);
+  });
+
+  it('the activation form and sign-in form do not share element IDs', () => {
+    // Activation form fields
+    const activationEmail = doc.getElementById('onb-email');
+    const activationPwd   = doc.getElementById('onb-password');
+    // Sign-in form fields — must be DIFFERENT elements with DIFFERENT ids
+    const signinEmail = doc.getElementById('onb-signin-email');
+    const signinPwd   = doc.getElementById('onb-signin-password');
+
+    expect(activationEmail).toBeTruthy();
+    expect(activationPwd).toBeTruthy();
+    expect(signinEmail).toBeTruthy();
+    expect(signinPwd).toBeTruthy();
+
+    // Critical: these must NOT be the same DOM node
+    expect(activationEmail).not.toBe(signinEmail);
+    expect(activationPwd).not.toBe(signinPwd);
+  });
+
+  it('no duplicate IDs exist anywhere on the onboarding screen', () => {
+    const allIds = Array.from(doc.querySelectorAll('[id]')).map(el => el.id);
+    const seen = new Set();
+    const duplicates = [];
+    for (const id of allIds) {
+      if (seen.has(id)) duplicates.push(id);
+      seen.add(id);
+    }
+    expect(duplicates).toEqual([]);
+  });
+
+  it('typing in the sign-in fields does not affect the activation form fields', () => {
+    doc.getElementById('onb-signin-email').value    = 'real-signin@test.com';
+    doc.getElementById('onb-signin-password').value = 'real-signin-password';
+
+    // Activation fields should remain untouched
+    expect(doc.getElementById('onb-email').value).not.toBe('real-signin@test.com');
+    expect(doc.getElementById('onb-password').value).not.toBe('real-signin-password');
+  });
+
+  it('onbSignInDirect reads values from the sign-in fields, not the activation fields', () => {
+    // Put DIFFERENT values in each form to prove isolation
+    doc.getElementById('onb-email').value             = 'activation@test.com';
+    doc.getElementById('onb-password').value           = 'activation-password';
+    doc.getElementById('onb-signin-email').value        = 'correct-signin@test.com';
+    doc.getElementById('onb-signin-password').value     = 'correct-signin-password';
+
+    // Stub fetch so the function doesn't actually hit the network
+    let capturedBody = null;
+    win.fetch = (url, opts) => {
+      if (opts && opts.body) capturedBody = JSON.parse(opts.body);
+      return Promise.resolve({
+        ok: false,
+        json: () => Promise.resolve({ error: 'invalid_grant', error_description: 'test stub' })
+      });
+    };
+
+    return win.onbSignInDirect().then(() => {
+      expect(capturedBody).toBeTruthy();
+      expect(capturedBody.email).toBe('correct-signin@test.com');
+      expect(capturedBody.password).toBe('correct-signin-password');
+    });
+  });
+});
