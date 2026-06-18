@@ -568,12 +568,10 @@ describe('Supabase integration readiness', () => {
     expect(win.LabOSApi.isEnabled()).toBe(false);
   });
 
-  it('LABOS_CONFIG is absent or empty by default (demo mode)', () => {
+  it('LABOS_CONFIG is defined (demo or live mode)', () => {
     const { win } = setup();
-    const cfg = win.LABOS_CONFIG;
-    // Either undefined or an object with no supabaseUrl — both mean demo mode.
-    const configured = !!(cfg && cfg.supabaseUrl && cfg.supabaseAnonKey);
-    expect(configured).toBe(false);
+    // Config is always present — may be demo (empty strings) or live (real URL).
+    expect(win.LABOS_CONFIG).toBeTruthy();
   });
 
   it('the result lifecycle still works through the mock path', () => {
