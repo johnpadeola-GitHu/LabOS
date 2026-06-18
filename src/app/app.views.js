@@ -699,7 +699,7 @@ const APP_STATE = {
         integrations:['Paystack']
       },
       features:[
-        'Up to 2 centres / locations',
+        '1 centre / location (upgrade to Standard for 3 centres)',
         'Up to 10 staff accounts',
         'Up to 8 registered devices',
         '1,500 patients per month',
@@ -922,7 +922,7 @@ const APP_STATE = {
   },
 
   platformAudit:[
-    {time:'2026-05-15 14:22', actor:'platform@labos.ng',  action:'subscription.upgrade', target:'tnt_vitalis',  details:'Upgraded Starter → Professional', ip:'196.46.22.14'},
+    {time:'2026-05-15 14:22', actor:'platform@labos.ng',  action:'subscription.upgrade', target:'tnt_vitalis',  details:'Upgraded CoreCare → Professional', ip:'196.46.22.14'},
     {time:'2026-05-12 09:08', actor:'billing@labos.ng',   action:'payment.refund',       target:'tnt_pathcare', details:'Refunded ₦85,000 (duplicate charge)', ip:'196.46.22.14'},
     {time:'2026-05-08 11:30', actor:'platform@labos.ng',  action:'tenant.soft_suspend',  target:'tnt_zenith',   details:'Auto: grace period elapsed', ip:'system'},
     {time:'2026-05-02 16:45', actor:'platform@labos.ng',  action:'tenant.create',        target:'tnt_hauwa',    details:'Trial signup via onboarding wizard', ip:'system'},
@@ -8213,6 +8213,7 @@ const HELP_CATEGORIES = [
   {id:'notifications',   iconKey:'bell',      title:'Notifications & Compose',    meta:'SMS, WhatsApp, email templates and delivery tracking · 5 articles'},
   {id:'billing',         iconKey:'card',      title:'Billing & Payments',         meta:'Invoices, Paystack, NHIS, HMOs, add-ons · 10 articles'},
   {id:'qc',              iconKey:'flask',     title:'Quality Control (QC)',        meta:'Levey-Jennings charts, Westgard rules, ISO 15189 · 5 articles'},
+  {id:'gateway',         iconKey:'plug',      title:'Instrument Gateway',         meta:'Connecting analyzers, ASTM, HL7, drivers, result import · 6 articles'},
   {id:'admin',           iconKey:'gear',      title:'Administration',             meta:'Staff, roles, branches, profile, subscription, plans · 13 articles'},
   {id:'integrations',    iconKey:'plug',      title:'Integrations & API',         meta:'Termii, Paystack, NHIS, HL7, SMTP, webhook · 11 articles'},
   {id:'compliance',      iconKey:'shield',    title:'Compliance & Security',      meta:'NDPR, data subject rights, audit log, 2FA, backup · 12 articles'}
@@ -9020,6 +9021,123 @@ const HELP_ARTICLES = {
     `}
   ],
 
+  'gateway': [
+    {id:'gw-1', title:'What is the LabOS Instrument Gateway?', read:'4 min', body:`
+      <h2>The problem it solves</h2>
+      <p>Laboratory analyzers produce results electronically, but most labs still have a technician manually re-typing those results into the LIMS. This is slow, error-prone, and a major source of transcription errors — one of the most common causes of patient harm in laboratory medicine.</p>
+      <p>The LabOS Instrument Gateway eliminates manual result entry entirely. It is a small Windows application that sits on the PC connected to your analyzer, receives results automatically the moment the analyzer produces them, and pushes them directly into LabOS.</p>
+      <h2>How it works</h2>
+      <ol>
+        <li>The analyzer completes a test run and sends the result over its serial cable or network connection</li>
+        <li>The Gateway receives the raw message (in ASTM or HL7 format), parses it, and extracts the patient and result data</li>
+        <li>The result is matched to the correct patient request in LabOS (by barcode, sample ID, or accession number)</li>
+        <li>The result is validated against reference ranges and checked for critical values</li>
+        <li>The result appears in the LabOS Clinical Laboratory screen ready for scientist review and release</li>
+      </ol>
+      <h2>What it runs on</h2>
+      <p>The Gateway is a Windows desktop application. It runs on the same PC that is physically connected to the analyzer — typically a Windows 10 or 11 PC. No internet connection is required to receive results; the Gateway stores them locally and syncs to LabOS when connectivity is available.</p>
+      <div class="tip"><b>One Gateway per analyzer group.</b> You only need one Gateway installation per PC, even if that PC is connected to multiple analyzers. The Gateway manages all connections from a single dashboard.</div>
+    `},
+    {id:'gw-2', title:'Installing the LabOS Instrument Gateway', read:'3 min', body:`
+      <h2>Requirements</h2>
+      <ul>
+        <li>Windows 10 or Windows 11 (64-bit)</li>
+        <li>The PC must be physically connected to the analyzer (via RS-232 serial cable, USB-to-serial adapter, or network cable)</li>
+        <li>Internet access for syncing results to LabOS (offline collection still works without it)</li>
+        <li>At least 200 MB free disk space</li>
+      </ul>
+      <h2>Installation steps</h2>
+      <ol>
+        <li>Download the installer <b>LabOS Instrument Gateway Setup.exe</b> from your LabOS administrator (AgoroX Technologies)</li>
+        <li>Double-click the installer file</li>
+        <li>If Windows SmartScreen shows a warning, click <b>More info → Run anyway</b> (the app is signed by AgoroX Technologies)</li>
+        <li>Click <b>Next</b> through the setup wizard and choose your installation folder</li>
+        <li>Click <b>Install</b> and wait for it to complete</li>
+        <li>Click <b>Finish</b> — the Gateway opens automatically</li>
+      </ol>
+      <p>The Gateway creates a desktop shortcut (<b>LabOS Gateway</b>) and a system tray icon. It runs in the background automatically when Windows starts.</p>
+      <h2>First-time configuration</h2>
+      <p>After installing, go to <b>Settings</b> in the Gateway and enter:</p>
+      <ul>
+        <li>Your LabOS API URL (provided by AgoroX Technologies)</li>
+        <li>Your API key (the anon public key from your Supabase project)</li>
+        <li>Your Laboratory ID (the tenant ID assigned to your lab)</li>
+      </ul>
+      <p>Then click <b>Test connection</b> to confirm the Gateway can reach LabOS, and <b>Save settings</b>.</p>
+    `},
+    {id:'gw-3', title:'Connecting an analyzer to the Gateway', read:'5 min', body:`
+      <h2>Supported connection types</h2>
+      <ul>
+        <li><b>RS-232 Serial</b> — the most common for African labs. The analyzer connects via a 9-pin serial cable (or USB-to-serial adapter). You need to know the COM port number (e.g. COM3) and the baud rate (usually 9600 or 19200 — check your analyzer's manual).</li>
+        <li><b>TCP/IP Network</b> — modern analyzers connect via Ethernet. You need the analyzer's IP address and port number.</li>
+        <li><b>File watch</b> — some analyzers export results to a folder as text or CSV files. The Gateway monitors the folder and imports files automatically.</li>
+      </ul>
+      <h2>How to add an analyzer</h2>
+      <ol>
+        <li>Open the Gateway and click <b>Settings</b></li>
+        <li>Scroll to <b>Add analyzer</b></li>
+        <li>Enter the analyzer name, vendor, and model</li>
+        <li>Select the protocol (<b>ASTM</b> for most African lab analyzers; <b>HL7</b> for modern Roche and Siemens instruments)</li>
+        <li>Select the connection type and fill in the connection details</li>
+        <li>Click <b>Add analyzer</b></li>
+        <li>Go to the <b>Analyzers</b> screen and click <b>Connect</b> next to the new analyzer</li>
+      </ol>
+      <h2>Finding your COM port</h2>
+      <p>On the Windows PC, right-click the Start button → <b>Device Manager</b> → expand <b>Ports (COM &amp; LPT)</b>. You will see the COM port number next to the serial or USB-serial device. Common numbers are COM3, COM4, or COM5.</p>
+      <div class="tip"><b>Tip:</b> If you are not sure of your baud rate, try 9600 first. Most Mindray and Sysmex analyzers use 9600 or 19200.</div>
+    `},
+    {id:'gw-4', title:'Supported analyzers and protocols', read:'4 min', body:`
+      <h2>ASTM protocol analyzers</h2>
+      <p>ASTM E1381/E1394 (also called LIS1-A2/LIS2-A2) is the most widely used protocol in Nigerian and African laboratories. It is used by:</p>
+      <ul>
+        <li><b>Mindray</b> — BC-3000, BC-5000, BC-5800 (hematology); BS-120, BS-200, BS-380 (chemistry)</li>
+        <li><b>Sysmex</b> — KX-21, XP-300, XN-series (hematology)</li>
+        <li><b>Erba</b> — XL-200, XL-640 (chemistry)</li>
+        <li><b>Dirui</b> — CS-series (chemistry and hematology)</li>
+        <li>Most coagulation, urinalysis, and immunology analyzers</li>
+      </ul>
+      <h2>HL7 protocol analyzers</h2>
+      <p>HL7 v2.x is used by higher-end network-connected analyzers, typically:</p>
+      <ul>
+        <li><b>Roche</b> — Cobas c-series, e-series (chemistry and immunoassay)</li>
+        <li><b>Siemens Healthineers</b> — Dimension, Atellica series</li>
+        <li><b>Abbott</b> — Architect series</li>
+      </ul>
+      <h2>Not sure which protocol your analyzer uses?</h2>
+      <p>Check the analyzer's LIS connectivity manual or call the vendor's technical support. Ask: "Does this analyzer support ASTM LIS interface or HL7?" Almost all analyzers sold in Nigeria support ASTM; HL7 is common on newer instruments purchased from 2018 onwards.</p>
+      <div class="tip"><b>Generic drivers available.</b> If your specific model is not listed, the Generic ASTM Driver works with any ASTM-compliant analyzer. Select it when adding the analyzer and configure the COM port settings manually.</div>
+    `},
+    {id:'gw-5', title:'How result matching works', read:'4 min', body:`
+      <h2>The matching problem</h2>
+      <p>When an analyzer sends a result, it identifies the sample by its own internal sample ID — which may or may not match the patient request number in LabOS. The Gateway's Sample Matching Engine bridges this gap.</p>
+      <h2>Matching priority order</h2>
+      <p>The engine tries four methods in sequence, stopping at the first match:</p>
+      <ol>
+        <li><b>Barcode</b> — if the sample tube was barcoded and the barcode was scanned at collection, the Gateway matches by barcode. This is the most reliable method and the one we recommend.</li>
+        <li><b>Sample ID</b> — the analyzer's internal sample sequence number. Works if your lab uses a consistent numbering scheme that matches LabOS.</li>
+        <li><b>Accession number</b> — the order/accession number from the test request. Works on analyzers that receive the worklist from LabOS (bi-directional interfaces).</li>
+        <li><b>Patient ID</b> — the patient's hospital number or ID. Least precise — may match multiple requests for the same patient.</li>
+      </ol>
+      <h2>What happens when no match is found</h2>
+      <p>Results that cannot be matched are held in the <b>Pending</b> queue on the Gateway Dashboard and in LabOS under Instrument Gateway → Sample Matching. A lab scientist can manually match them by searching for the patient and linking the result.</p>
+      <div class="tip"><b>Best practice:</b> Always print and scan barcoded labels on sample tubes. This makes the matching process automatic and eliminates the need for manual intervention.</div>
+    `},
+    {id:'gw-6', title:'Offline operation and syncing', read:'3 min', body:`
+      <h2>Working offline</h2>
+      <p>The Gateway stores all received results in a local SQLite database on the PC. This means results are never lost even if the internet connection drops during a shift. The analyzer-to-Gateway connection is completely local — it does not need the internet.</p>
+      <h2>Syncing to LabOS</h2>
+      <p>When internet connectivity is available, the Gateway automatically syncs pending results to LabOS every 30 seconds (configurable in Settings). You can also trigger an immediate sync by clicking <b>Sync now</b> on the Gateway dashboard.</p>
+      <h2>Monitoring sync status</h2>
+      <p>The bottom-left of the Gateway shows the sync status:</p>
+      <ul>
+        <li><b>Sync active</b> (green dot) — connected to LabOS and syncing normally</li>
+        <li><b>Not syncing</b> (grey dot) — no LabOS URL configured in Settings</li>
+        <li><b>Sync error</b> (amber dot) — connection to LabOS failed; check your internet and the LabOS URL in Settings</li>
+      </ul>
+      <p>The pending count on the Dashboard shows how many results are waiting to be synced. This should normally be zero or close to zero during working hours when internet is available.</p>
+    `}
+  ],
+
   'admin': [
     {id:'ad-1', title:'Adding and managing staff', read:'4 min', body:`
       <h2>Inviting staff to your laboratory</h2>
@@ -9055,7 +9173,7 @@ const HELP_ARTICLES = {
       <h2>Centre-specific settings</h2>
       <p>Each centre can have its own: opening hours, holiday calendar, branch-specific phone number for the patient portal, default radiologist on duty, and (on Enterprise) its own branding.</p>
       <h2>Plan limits</h2>
-      <p>Starter: 1 centre. Professional: up to 3. Enterprise: unlimited. To add more centres on Starter, you must upgrade to Professional.</p>
+      <p>CoreCare: 1 centre. Standard: up to 3. Professional: up to 10. Enterprise: unlimited. To add more centres, upgrade your plan or purchase an Additional Centre Slot add-on (₦180,000/centre/year, available on Professional).</p>
     `},
     {id:'ad-4', title:'Tenant profile and branding', read:'3 min', body:`
       <h2>What's on your profile</h2>
@@ -9393,7 +9511,9 @@ const HELP_FAQS = [
   {q:'Can I export all my data?', a:'Yes — from Settings → Backup & Recovery, request a full export. You\'ll receive a download link within 24 hours with all your data as JSON, CSV (tabular data), and PDF (reports). This is your right under NDPR and it\'s free and unlimited.'},
   {q:'How do I migrate from another LIMS?', a:'Our migration team handles this on Professional and Enterprise plans at no extra cost. We have proven import paths from MS Excel, Helium Health, Sokomed, and most legacy LIS systems. Typical timeline is 2 weeks for data import plus 1 week of parallel running.'},
   {q:'What languages does LabOS support?', a:'The interface supports English (default), Hausa, Yoruba, and Igbo. Switch language using the EN / HA / YO / IG buttons at the bottom of the sidebar. Hausa has the most complete translation — further translations are ongoing.'},
-  {q:'How does the referral doctor portal work?', a:'Referring clinicians can access a secure read-only portal showing released results for their patients. They log in with their MDCN number and a one-time code. They can view results and download PDF reports — they cannot modify any data. Enable it from Administration → Settings → Referral Access.'}
+  {q:'How does the referral doctor portal work?', a:'Referring clinicians can access a secure read-only portal showing released results for their patients. They log in with their MDCN number and a one-time code. They can view results and download PDF reports — they cannot modify any data. Enable it from Administration → Settings → Referral Access.'},
+  {q:'What is the Instrument Gateway and do I need it?', a:'The LabOS Instrument Gateway is a Windows desktop app that connects your laboratory analyzers directly to LabOS, automatically importing results without manual re-typing. You need it if you want to eliminate manual result entry. Without it, scientists type results by hand. With it, results appear automatically the moment the analyzer completes a run. It supports RS-232 serial, TCP/IP, ASTM, and HL7 protocols — covering Mindray, Sysmex, Roche Cobas, and most other analyzers used in Nigeria.'},
+  {q:'Which analyzers does the Instrument Gateway support?', a:'The Gateway supports any analyzer that uses ASTM E1381/E1394 or HL7 v2.x protocols — which covers the vast majority of analyzers in Nigerian labs. This includes Mindray BC-series (hematology) and BS-series (chemistry), Sysmex KX-21 and XP-300, Roche Cobas c-series, Erba XL-series, and Dirui CS-series. A Generic ASTM Driver covers any ASTM-compliant analyzer not specifically listed.'}
 ];
 
 /* ==========================================================
@@ -10524,13 +10644,13 @@ function renderHelpHomeBody(){
     {catId:'getting-started', artId:'gs-2', title:'Your first day: a 15-minute walkthrough'},
     {catId:'workflow',        artId:'wf-1', title:'The 7-stage test request workflow'},
     {catId:'getting-started', artId:'gs-4', title:'Understanding plans & entitlements'},
-    {catId:'qc',             artId:'qc-1', title:'What is Quality Control in a clinical lab?'},
-    {catId:'qc',             artId:'qc-4', title:'Responding to a QC rejection'},
-    {catId:'compliance',     artId:'cp-1', title:'NDPR compliance: what LabOS does and what you must do'},
-    {catId:'compliance',     artId:'cp-2', title:'Handling data subject access requests (DSARs)'},
-    {catId:'workflow',       artId:'wf-2', title:'Handling critical results'},
-    {catId:'admin',          artId:'ad-1', title:'Adding and managing staff'},
-    {catId:'billing',        artId:'bl-1', title:'Setting up Paystack for your laboratory'}
+    {catId:'qc',              artId:'qc-1', title:'What is Quality Control in a clinical lab?'},
+    {catId:'qc',              artId:'qc-4', title:'Responding to a QC rejection'},
+    {catId:'gateway',         artId:'gw-1', title:'What is the LabOS Instrument Gateway?'},
+    {catId:'gateway',         artId:'gw-3', title:'Connecting an analyzer to the Gateway'},
+    {catId:'compliance',      artId:'cp-1', title:'NDPR compliance: what LabOS does and what you must do'},
+    {catId:'compliance',      artId:'cp-2', title:'Handling data subject access requests (DSARs)'},
+    {catId:'billing',         artId:'bl-1', title:'Setting up Paystack for your laboratory'}
   ];
   const q = (HELP_STATE.search||'').trim().toLowerCase();
   if(q){
@@ -10795,9 +10915,9 @@ function legalEulaHTML(){
     <p>Subject to your continued compliance with this Agreement and timely payment of all applicable fees, AgoroX grants you a <b>limited, non-exclusive, non-transferable, non-sublicensable</b> license to access and use LabOS for the internal business operations of your laboratory.</p>
 
     <h2>2. Subscription and fees</h2>
-    <p>LabOS is offered on an <b>annual subscription basis only</b>. The applicable fee is determined by the plan you select (Starter, Professional, or Enterprise). Fees are charged in Nigerian Naira (₦) and processed via Paystack.</p>
+    <p>LabOS is offered on an <b>annual subscription basis only</b>. The applicable fee is determined by the plan you select (CoreCare, Standard, Professional, or Enterprise). Fees are charged in Nigerian Naira (₦) and processed via Paystack.</p>
     <ul>
-      <li>Free trial: 14 days for Starter and Professional plans; 30 days for Enterprise</li>
+      <li>Free trial: 14 days for CoreCare, Standard, and Professional plans; 30 days for Enterprise</li>
       <li>Auto-renewal: subscriptions renew automatically at the end of each annual term unless cancelled</li>
       <li>Late payment: subscriptions enter a 7-day grace period after a failed payment; soft suspension follows if unpaid</li>
       <li>Refunds: pro-rata refunds are available within 30 days of an annual charge for unused service</li>
@@ -10819,7 +10939,7 @@ function legalEulaHTML(){
     <p>Upon termination, you may export all your data within 90 days (per the Privacy Policy). After 90 days, AgoroX permanently deletes your data.</p>
 
     <h2>5. Service availability</h2>
-    <p>AgoroX targets <b>99.5% monthly uptime</b> for Starter, <b>99.9%</b> for Professional, and <b>99.95%</b> for Enterprise (excluding scheduled maintenance announced at least 72 hours in advance). Service credits are issued if these targets are missed, calculated as a percentage refund of that month's pro-rated fee.</p>
+    <p>AgoroX targets <b>99.5% monthly uptime</b> for CoreCare and Standard, <b>99.9%</b> for Professional, and <b>99.95%</b> for Enterprise (excluding scheduled maintenance announced at least 72 hours in advance). Service credits are issued if these targets are missed, calculated as a percentage refund of that month's pro-rated fee.</p>
 
     <h2>6. Warranties and disclaimers</h2>
     <p>AgoroX warrants that LabOS will perform substantially as described in our public documentation. EXCEPT AS EXPRESSLY STATED, THE SERVICE IS PROVIDED "AS IS". AgoroX disclaims all other warranties, express or implied, including merchantability and fitness for a particular purpose, to the maximum extent permitted by Nigerian law.</p>
@@ -17258,7 +17378,7 @@ function renderPlatformOverview(root){
     });
     new Chart(document.getElementById('planChart'), {
       type:'doughnut',
-      data:{labels:['Starter','Professional','Enterprise'], datasets:[{data:[m.planDistribution.starter, m.planDistribution.professional, m.planDistribution.enterprise], backgroundColor:['#8DA1BD','#2F4A6D','#1A2E48']}]},
+      data:{labels:['CoreCare','Standard','Professional','Enterprise'], datasets:[{data:[m.planDistribution.corecare||0, m.planDistribution.standard||0, m.planDistribution.professional, m.planDistribution.enterprise], backgroundColor:['#8DA1BD','#2F4A6D','#1A2E48']}]},
       options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'bottom', labels:{boxWidth:10, font:{size:11}}}}}
     });
   }, 50);
