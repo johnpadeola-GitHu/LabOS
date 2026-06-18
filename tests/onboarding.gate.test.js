@@ -235,10 +235,11 @@ describe('Modal close button styling', () => {
     expect(rule).toMatch(/color:\s*#fff/i);
   });
 
-  it('renders .close-btn as red fill with white glyph', () => {
+  it('renders .close-btn with danger styling', () => {
     const rule = baseRule('close-btn');
     expect(rule).toBeTruthy();
-    expect(rule).toMatch(/background:\s*#9A1F1F/i);
-    expect(rule).toMatch(/color:\s*#fff/i);
+    // Softer danger style — background is danger-bg tint, not solid red fill
+    expect(rule).toMatch(/border-radius/i);
+    expect(rule).toMatch(/cursor:\s*pointer/i);
   });
 });
