@@ -18113,10 +18113,10 @@ function renderOnboarding(){
         <div class="onb-divider"><span>or sign in</span></div>
         <div id="onb-signin-form" style="margin-top:4px">
           <div class="field" style="margin-bottom:8px">
-            <input id="onb-email" type="email" class="input" placeholder="Email address" autocomplete="email" style="width:100%">
+            <input id="onb-signin-email" type="email" class="input" placeholder="Email address" autocomplete="email" style="width:100%">
           </div>
           <div class="field" style="margin-bottom:10px">
-            <input id="onb-password" type="password" class="input" placeholder="Password" autocomplete="current-password" style="width:100%">
+            <input id="onb-signin-password" type="password" class="input" placeholder="Password" autocomplete="current-password" style="width:100%">
           </div>
           <div id="onb-signin-error" style="display:none;color:#9A1F1F;font-size:12px;margin-bottom:8px;padding:8px 12px;background:#FFF0F0;border-radius:6px;border-left:3px solid #9A1F1F"></div>
           <button class="btn primary" id="onb-signin-btn" onclick="onbSignInDirect()" style="width:100%">Sign in →</button>
@@ -18626,8 +18626,8 @@ function onbReferralSignIn(){
 // Direct sign-in using Supabase Auth REST API — no SDK, no modules.
 // Works the moment the page loads because it is just a fetch() call.
 async function onbSignInDirect(){
-  const email    = (document.getElementById('onb-email')    || {}).value || '';
-  const password = (document.getElementById('onb-password') || {}).value || '';
+  const email    = (document.getElementById('onb-signin-email')    || {}).value || '';
+  const password = (document.getElementById('onb-signin-password') || {}).value || '';
   const errDiv   = document.getElementById('onb-signin-error');
   const btn      = document.getElementById('onb-signin-btn');
 
@@ -18737,8 +18737,8 @@ function onbAdminSignIn(){
   // Kept for backward compatibility.
   const cfg = window.LABOS_CONFIG || {};
   if(cfg.supabaseUrl && cfg.supabaseAnonKey){
-    // Focus the email field on the inline form
-    const el = document.getElementById('onb-email');
+    // Focus the email field on the inline sign-in form
+    const el = document.getElementById('onb-signin-email');
     if(el){ el.focus(); }
     return;
   }

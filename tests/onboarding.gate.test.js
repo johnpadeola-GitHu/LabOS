@@ -243,3 +243,77 @@ describe('Modal close button styling', () => {
     expect(rule).toMatch(/cursor:\s*pointer/i);
   });
 });
+
+describe('Sign-in form field isolation (regression: duplicate ID bug)', () => {
+  let win, doc;
+
+  beforeEach(() => {
+    const booted = bootLabOS();
+    win = booted.win;
+    doc = win.document;
+    win.LABOS_CONFIG = { supabaseUrl: 'https://test.supabase.co', supabaseAnonKey: 'test-key' };
+    win.renderOnboarding(1);
+  });
+
+  it('the activation form and sign-in form do not share element IDs', () => {
+    // Activation form fields
+    const activationEmail = doc.getElementById('onb-email');
+    const activationPwd   = doc.getElementById('onb-password');
+    // Sign-in form fields — must be DIFFERENT elements with DIFFERENT ids
+    const signinEmail = doc.getElementById('onb-signin-email');
+    const signinPwd   = doc.getElementById('onb-signin-password');
+
+    expect(activationEmail).toBeTruthy();
+    expect(activationPwd).toBeTruthy();
+    expect(signinEmail).toBeTruthy();
+    expect(signinPwd).toBeTruthy();
+
+    // Critical: these must NOT be the same DOM node
+    expect(activationEmail).not.toBe(signinEmail);
+    expect(activationPwd).not.toBe(signinPwd);
+  });
+
+  it('no duplicate IDs exist anywhere on the onboarding screen', () => {
+    const allIds = Array.from(doc.querySelectorAll('[id]')).map(el => el.id);
+    const seen = new Set();
+    const duplicates = [];
+    for (const id of allIds) {
+      if (seen.has(id)) duplicates.push(id);
+      seen.add(id);
+    }
+    expect(duplicates).toEqual([]);
+  });
+
+  it('typing in the sign-in fields does not affect the activation form fields', () => {
+    doc.getElementById('onb-signin-email').value    = 'real-signin@test.com';
+    doc.getElementById('onb-signin-password').value = 'real-signin-password';
+
+    // Activation fields should remain untouched
+    expect(doc.getElementById('onb-email').value).not.toBe('real-signin@test.com');
+    expect(doc.getElementById('onb-password').value).not.toBe('real-signin-password');
+  });
+
+  it('onbSignInDirect reads values from the sign-in fields, not the activation fields', () => {
+    // Put DIFFERENT values in each form to prove isolation
+    doc.getElementById('onb-email').value             = 'activation@test.com';
+    doc.getElementById('onb-password').value           = 'activation-password';
+    doc.getElementById('onb-signin-email').value        = 'correct-signin@test.com';
+    doc.getElementById('onb-signin-password').value     = 'correct-signin-password';
+
+    // Stub fetch so the function doesn't actually hit the network
+    let capturedBody = null;
+    win.fetch = (url, opts) => {
+      if (opts && opts.body) capturedBody = JSON.parse(opts.body);
+      return Promise.resolve({
+        ok: false,
+        json: () => Promise.resolve({ error: 'invalid_grant', error_description: 'test stub' })
+      });
+    };
+
+    return win.onbSignInDirect().then(() => {
+      expect(capturedBody).toBeTruthy();
+      expect(capturedBody.email).toBe('correct-signin@test.com');
+      expect(capturedBody.password).toBe('correct-signin-password');
+    });
+  });
+});
