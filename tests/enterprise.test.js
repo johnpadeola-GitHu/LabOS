@@ -383,7 +383,7 @@ describe('Referral doctor portal', () => {
 
   it('renderReferralPortal() renders the read-only banner', () => {
     const { win, doc } = setup();
-    win.enterTenantMode('tnt_vitalis');
+    win.enterTenantMode('440a5c9e-605e-4d53-9aff-dc7562087575');
     win.S().referralDoctor = 'Dr. Adekunle Smith';
     const root = doc.createElement('div'); doc.body.appendChild(root);
     win.renderReferralPortal(root);
@@ -394,7 +394,7 @@ describe('Referral doctor portal', () => {
 
   it('filterReferralResults() hides non-matching cards', () => {
     const { win, doc } = setup();
-    win.enterTenantMode('tnt_vitalis');
+    win.enterTenantMode('440a5c9e-605e-4d53-9aff-dc7562087575');
     win.S().referralDoctor = 'Dr. Adekunle Smith';
     const root = doc.createElement('div'); root.id = 'content'; doc.body.appendChild(root);
     win.renderReferralPortal(root);

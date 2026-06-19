@@ -38,7 +38,7 @@ describe('API client presence + gating', () => {
 describe('Offline-first preserved (mock path)', () => {
   it('LicenseCore.registerDevice still works with no backend', () => {
     const { win, LicenseCore } = bootLabOS();
-    LicenseCore.registerDevice('tnt_vitalis');
+    LicenseCore.registerDevice('440a5c9e-605e-4d53-9aff-dc7562087575');
     expect(LicenseCore.state.status).toBe('valid');
   });
 
@@ -55,7 +55,7 @@ describe('Clinical Laboratory slice', () => {
   it('filters requests by status (functional, not static)', () => {
     const { win, APP_STATE } = bootLabOS();
     win.S().mode = 'tenant';
-    win.S().activeTenantId = 'tnt_vitalis';
+    win.S().activeTenantId = '440a5c9e-605e-4d53-9aff-dc7562087575';
     const probe = win.document.createElement('script');
     probe.textContent = `navigate('requests');
       window.__allRows = document.querySelectorAll('#clinlab-tbody tr').length;
@@ -72,7 +72,7 @@ describe('Clinical Laboratory slice', () => {
   it('titles the page "Clinical Laboratory"', () => {
     const { win } = bootLabOS();
     win.S().mode = 'tenant';
-    win.S().activeTenantId = 'tnt_vitalis';
+    win.S().activeTenantId = '440a5c9e-605e-4d53-9aff-dc7562087575';
     const probe = win.document.createElement('script');
     probe.textContent = `navigate('requests'); window.__t = document.querySelector('.page-title').textContent.trim();`;
     win.document.body.appendChild(probe);
@@ -102,7 +102,7 @@ describe('Clinical Laboratory slice', () => {
     win.confirm = () => true;
     const probe = win.document.createElement('script');
     probe.textContent = `
-      enterTenantMode('tnt_vitalis');
+      enterTenantMode('440a5c9e-605e-4d53-9aff-dc7562087575');
       let target = (APP_STATE.requests||[]).find(r=>['progress','review'].includes(r.status));
       if(!target){ target = APP_STATE.requests[0]; target.status='review'; target.tests=['FBC']; }
       window.__rid = target.id;
@@ -132,7 +132,7 @@ describe('Clinical Laboratory slice', () => {
     const calls = { enter: [], validate: [], release: [] };
     const probe = win.document.createElement('script');
     probe.textContent = `
-      enterTenantMode('tnt_vitalis');
+      enterTenantMode('440a5c9e-605e-4d53-9aff-dc7562087575');
       // Force a request into the pipeline with a known panel.
       let target = (APP_STATE.requests||[]).find(r=>['progress','review'].includes(r.status)) || APP_STATE.requests[0];
       target.status = 'review'; target.tests = ['FBC'];
@@ -185,7 +185,7 @@ describe('Renal Diagnostics slice', () => {
     win.alert = () => {};
     const probe = win.document.createElement('script');
     probe.textContent = `
-      enterTenantMode('tnt_vitalis');
+      enterTenantMode('440a5c9e-605e-4d53-9aff-dc7562087575');
       navigate('renal');
       window.__before = (APP_STATE.dialysisSessions||[]).length;
       openModal('dialysis-session');
@@ -210,7 +210,7 @@ describe('Diagnostics slices — create flows persist records', () => {
     win.alert = () => {};
     const probe = win.document.createElement('script');
     probe.textContent = `
-      enterTenantMode('tnt_vitalis'); navigate('molecular');
+      enterTenantMode('440a5c9e-605e-4d53-9aff-dc7562087575'); navigate('molecular');
       window.__before = APP_STATE.molecularTests.length;
       openNewMolecularOrder();
       { const _p=APP_STATE.patients[0]; pcSelect('mol-patient',_p.id,_p.name+' — '+_p.id); }
@@ -229,7 +229,7 @@ describe('Diagnostics slices — create flows persist records', () => {
     win.alert = () => {};
     const probe = win.document.createElement('script');
     probe.textContent = `
-      enterTenantMode('tnt_vitalis'); navigate('dna');
+      enterTenantMode('440a5c9e-605e-4d53-9aff-dc7562087575'); navigate('dna');
       window.__before = APP_STATE.dnaOrders.length;
       openModal('new-dna-order');
       // pick a legal category if present, else first
@@ -254,7 +254,7 @@ describe('Diagnostics slices — create flows persist records', () => {
     win.alert = () => {};
     const probe = win.document.createElement('script');
     probe.textContent = `
-      enterTenantMode('tnt_vitalis'); navigate('histopath');
+      enterTenantMode('440a5c9e-605e-4d53-9aff-dc7562087575'); navigate('histopath');
       window.__before = APP_STATE.histopathCases.length;
       openNewHistopathCase();
       { const _p=APP_STATE.patients[0]; pcSelect('hp-patient',_p.id,_p.name+' — '+_p.id); }
@@ -285,7 +285,7 @@ describe('Diagnostics domains — Hematology / Microbiology / Serology / Toxicol
       win.alert = () => {};
       const probe = win.document.createElement('script');
       probe.textContent = `
-        enterTenantMode('tnt_vitalis');
+        enterTenantMode('440a5c9e-605e-4d53-9aff-dc7562087575');
         navigate('${d.route}');
         window.__title = document.querySelector('.page-title').textContent.trim();
         window.__rows = document.querySelectorAll('.panel table tbody tr').length;
@@ -319,7 +319,7 @@ describe('Imaging & Diagnostic — per-modality worklists', () => {
       const { win } = bootLabOS();
       const probe = win.document.createElement('script');
       probe.textContent = `
-        enterTenantMode('tnt_vitalis'); navigate('${route}');
+        enterTenantMode('440a5c9e-605e-4d53-9aff-dc7562087575'); navigate('${route}');
         window.__title = document.querySelector('.page-title').textContent.trim();
         window.__hasStats = document.querySelectorAll('.stat-card').length;
       `;
@@ -334,7 +334,7 @@ describe('Imaging & Diagnostic — per-modality worklists', () => {
     win.alert = () => {};
     const probe = win.document.createElement('script');
     probe.textContent = `
-      enterTenantMode('tnt_vitalis'); navigate('mri');
+      enterTenantMode('440a5c9e-605e-4d53-9aff-dc7562087575'); navigate('mri');
       window.__before = imgOrdersFor(['MRI']).length;
       // every visible row should be MRI
       window.__allMri = imgOrdersFor(['MRI']).every(o => o.modality === 'MRI');
@@ -365,7 +365,7 @@ describe('Clinical Programs & Health Packages — per-program worklists', () => 
       const { win } = bootLabOS();
       const probe = win.document.createElement('script');
       probe.textContent = `
-        enterTenantMode('tnt_vitalis'); navigate('${route}');
+        enterTenantMode('440a5c9e-605e-4d53-9aff-dc7562087575'); navigate('${route}');
         window.__title = document.querySelector('.page-title').textContent.trim();
         window.__stats = document.querySelectorAll('.stat-card').length;
       `;
@@ -380,7 +380,7 @@ describe('Clinical Programs & Health Packages — per-program worklists', () => 
     win.alert = () => {};
     const probe = win.document.createElement('script');
     probe.textContent = `
-      enterTenantMode('tnt_vitalis'); navigate('progSti');
+      enterTenantMode('440a5c9e-605e-4d53-9aff-dc7562087575'); navigate('progSti');
       window.__allSti = pkgOrdersFor('STI').every(o => o.category === 'STI');
       window.__before = pkgOrdersFor('STI').length;
       openProgramOrder('progSti');
@@ -402,7 +402,7 @@ describe('BiobankOS — real action flows', () => {
     win.alert = () => {};
     const probe = win.document.createElement('script');
     probe.textContent = `
-      enterTenantMode('tnt_vitalis');
+      enterTenantMode('440a5c9e-605e-4d53-9aff-dc7562087575');
       const bb = biobankSeed();
       navigate('biobankSpecimens');
       window.__before = bb.specimens.length;
@@ -424,7 +424,7 @@ describe('BiobankOS — real action flows', () => {
     win.confirm = () => true;
     const probe = win.document.createElement('script');
     probe.textContent = `
-      enterTenantMode('tnt_vitalis');
+      enterTenantMode('440a5c9e-605e-4d53-9aff-dc7562087575');
       const bb = biobankSeed();
       const donor = 'Adaeze Okafor';
       window.__activeBefore = bb.specimens.filter(s=>s.patient===donor && s.consent==='active').length;
@@ -445,7 +445,7 @@ describe('BiobankOS — real action flows', () => {
     win.alert = () => {};
     const probe = win.document.createElement('script');
     probe.textContent = `
-      enterTenantMode('tnt_vitalis');
+      enterTenantMode('440a5c9e-605e-4d53-9aff-dc7562087575');
       const bb = biobankSeed();
       window.__cBefore = bb.consents.length;
       openBiobankConsent(); { const _p=(APP_STATE.patients||[])[0]; if(_p) pcSelect('bbc-patient',_p.id,_p.name+' — '+_p.id); } submitBiobankConsent();
@@ -477,7 +477,7 @@ describe('Research, Administration & Core Services — final screens', () => {
       const { win } = bootLabOS();
       const probe = win.document.createElement('script');
       probe.textContent = `
-        enterTenantMode('tnt_vitalis'); navigate('${route}');
+        enterTenantMode('440a5c9e-605e-4d53-9aff-dc7562087575'); navigate('${route}');
         window.__title = document.querySelector('.page-title').textContent.trim();
         window.__len = document.getElementById('content').innerHTML.length;
       `;
@@ -490,7 +490,7 @@ describe('Research, Administration & Core Services — final screens', () => {
   it('the ENTIRE module tree is real — no scaffolds, no thin pages', () => {
     const { win, labos, ROUTES } = bootLabOS();
     win.S().mode = 'tenant';
-    win.S().activeTenantId = 'tnt_vitalis';
+    win.S().activeTenantId = '440a5c9e-605e-4d53-9aff-dc7562087575';
     const problems = [];
     for (const g of labos.NAV_GROUPS.tenant) {
       for (const item of g.items) {
@@ -515,7 +515,7 @@ describe('Testing-mode licence & sidebar collapse', () => {
     win.console.warn = (...a) => warnings.push(a.join(' '));
     const probe = win.document.createElement('script');
     probe.textContent = `
-      enterTenantMode('tnt_vitalis');
+      enterTenantMode('440a5c9e-605e-4d53-9aff-dc7562087575');
       // simulate a stale pointer to a removed route, then the boot validation
       APP_STATE.currentRoute = 'a_route_that_was_removed';
       const saved = APP_STATE.currentRoute;
@@ -534,7 +534,7 @@ describe('Testing-mode licence & sidebar collapse', () => {
     win.alert = () => {};
     const probe = win.document.createElement('script');
     probe.textContent = `
-      enterTenantMode('tnt_vitalis');
+      enterTenantMode('440a5c9e-605e-4d53-9aff-dc7562087575');
       if (typeof LicenseCore !== 'undefined' && LicenseCore.init) LicenseCore.init();
       window.__requireLic = requireLicensed('test action');
       navigate('appointments');
@@ -551,7 +551,7 @@ describe('Testing-mode licence & sidebar collapse', () => {
     const { win } = bootLabOS();
     const probe = win.document.createElement('script');
     probe.textContent = `
-      enterTenantMode('tnt_vitalis');
+      enterTenantMode('440a5c9e-605e-4d53-9aff-dc7562087575');
       window.__a = document.getElementById('app').classList.contains('sidebar-collapsed');
       toggleSidebarCollapse();
       window.__b = document.getElementById('app').classList.contains('sidebar-collapsed');
@@ -568,7 +568,7 @@ describe('Testing-mode licence & sidebar collapse', () => {
     const { win } = bootLabOS();
     const probe = win.document.createElement('script');
     probe.textContent = `
-      enterTenantMode('tnt_vitalis'); renderShell();
+      enterTenantMode('440a5c9e-605e-4d53-9aff-dc7562087575'); renderShell();
       const app = document.getElementById('app');
       const get = () => app.style.getPropertyValue('--sidebar-w');
       window.__handle = !!document.getElementById('sidebar-resizer');
@@ -587,7 +587,7 @@ describe('Testing-mode licence & sidebar collapse', () => {
     const { win } = bootLabOS();
     const probe = win.document.createElement('script');
     probe.textContent = `
-      enterTenantMode('tnt_vitalis'); renderShell();
+      enterTenantMode('440a5c9e-605e-4d53-9aff-dc7562087575'); renderShell();
       const get = () => parseInt(document.getElementById('app').style.getPropertyValue('--sidebar-w'), 10);
       window.__hasStepper = document.querySelectorAll('.sidebar-width-step').length === 2;
       setSidebarWidth(240);
@@ -611,7 +611,7 @@ describe('Testing-mode licence & sidebar collapse', () => {
     const { win } = bootLabOS();
     const probe = win.document.createElement('script');
     probe.textContent = `
-      enterTenantMode('tnt_vitalis');
+      enterTenantMode('440a5c9e-605e-4d53-9aff-dc7562087575');
       navigate('requests'); // active route lives in Diagnostics
       renderShell();
       const groups = [...document.querySelectorAll('.nav-group[data-group]')];
@@ -633,7 +633,7 @@ describe('Testing-mode licence & sidebar collapse', () => {
     const { win } = bootLabOS();
     const probe = win.document.createElement('script');
     probe.textContent = `
-      enterTenantMode('tnt_vitalis'); navigate('help');
+      enterTenantMode('440a5c9e-605e-4d53-9aff-dc7562087575'); navigate('help');
       const input = document.querySelector('.help-search input');
       const wrap = document.getElementById('help-home-body');
       HELP_STATE.search = 'release'; updateHelpHome();
@@ -654,7 +654,7 @@ describe('Testing-mode licence & sidebar collapse', () => {
     const { win, APP_STATE } = bootLabOS();
     const probe = win.document.createElement('script');
     probe.textContent = `
-      enterTenantMode('tnt_vitalis'); navigate('notifications');
+      enterTenantMode('440a5c9e-605e-4d53-9aff-dc7562087575'); navigate('notifications');
       window.__before = APP_STATE.notifications.length;
       openComposeNotification();
       { const _p=APP_STATE.patients[0]; pcSelect('cn-patient',_p.id,_p.name+' — '+_p.id); }
@@ -676,7 +676,7 @@ describe('Testing-mode licence & sidebar collapse', () => {
     const { win, APP_STATE } = bootLabOS();
     const probe = win.document.createElement('script');
     probe.textContent = `
-      enterTenantMode('tnt_vitalis');
+      enterTenantMode('440a5c9e-605e-4d53-9aff-dc7562087575');
       const o = APP_STATE.imagingOrders || [];
       let opened = 0, threw = null;
       for (const order of o) {
@@ -704,7 +704,7 @@ describe('Testing-mode licence & sidebar collapse', () => {
     const { win, APP_STATE } = bootLabOS();
     const probe = win.document.createElement('script');
     probe.textContent = `
-      enterTenantMode('tnt_vitalis'); navigate('audit');
+      enterTenantMode('440a5c9e-605e-4d53-9aff-dc7562087575'); navigate('audit');
       const total = APP_STATE.audit.length;
       window.__total = total;
       const input = document.getElementById('audit-search');
@@ -765,7 +765,7 @@ describe('Testing-mode licence & sidebar collapse', () => {
     const { win } = bootLabOS();
     const probe = win.document.createElement('script');
     probe.textContent = `
-      enterTenantMode('tnt_vitalis'); navigate('integrations');
+      enterTenantMode('440a5c9e-605e-4d53-9aff-dc7562087575'); navigate('integrations');
       document.getElementById('int-termii-apiKey').value = 'TLtestkey';
       document.getElementById('int-termii-smsSenderId').value = 'TESTLAB';
       saveTenantIntegration('termii');
@@ -783,7 +783,7 @@ describe('Testing-mode licence & sidebar collapse', () => {
     const { win } = bootLabOS();
     const probe = win.document.createElement('script');
     probe.textContent = `
-      enterTenantMode('tnt_vitalis'); navigate('pricing');
+      enterTenantMode('440a5c9e-605e-4d53-9aff-dc7562087575'); navigate('pricing');
       const input = document.querySelector('.rx-searchbar input');
       const wrap = document.getElementById('pricing-table-wrap');
       const rowsBefore = document.querySelectorAll('#pricing-table-wrap tr').length;
@@ -804,7 +804,7 @@ describe('Testing-mode licence & sidebar collapse', () => {
     const { win } = bootLabOS();
     const probe = win.document.createElement('script');
     probe.textContent = `
-      enterTenantMode('tnt_vitalis');
+      enterTenantMode('440a5c9e-605e-4d53-9aff-dc7562087575');
       openCommandPalette();
       const a = document.getElementById('cmdk-input');
       cmdkOnInput('p');  const b = document.getElementById('cmdk-input');
@@ -827,7 +827,7 @@ describe('Testing-mode licence & sidebar collapse', () => {
     const { win, APP_STATE } = bootLabOS();
     const probe = win.document.createElement('script');
     probe.textContent = `
-      enterTenantMode('tnt_vitalis');
+      enterTenantMode('440a5c9e-605e-4d53-9aff-dc7562087575');
       openCommandPalette();
       cmdkOnInput('a');
       const items = [...document.querySelectorAll('.cmdk-item')];
@@ -867,7 +867,7 @@ describe('Housekeeping — previously-stub buttons now functional', () => {
     const { win } = bootLabOS();
     const probe = win.document.createElement('script');
     probe.textContent = `
-      enterTenantMode('tnt_vitalis');
+      enterTenantMode('440a5c9e-605e-4d53-9aff-dc7562087575');
       navigate('pricing');
       window.__pricingOk = (typeof saveTenantPricing === 'function');
       try { saveTenantPricing(); window.__pricingRan = true; } catch(e) { window.__pricingErr = e.message; }
@@ -887,7 +887,7 @@ describe('Housekeeping — previously-stub buttons now functional', () => {
     const { win, APP_STATE } = bootLabOS();
     const probe = win.document.createElement('script');
     probe.textContent = `
-      enterTenantMode('tnt_vitalis');
+      enterTenantMode('440a5c9e-605e-4d53-9aff-dc7562087575');
       recordLegalAcceptance('eula');
       window.__legal = !!(APP_STATE.legalAcceptances && APP_STATE.legalAcceptances.eula);
       openModal('new-dna-order');

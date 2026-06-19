@@ -14,7 +14,7 @@ function setup() {
       const el = doc.createElement('div'); el.id = id; doc.body.appendChild(el);
     }
   });
-  win.enterTenantMode('tnt_vitalis');
+  win.enterTenantMode('440a5c9e-605e-4d53-9aff-dc7562087575');
   win.openAppointment();
   const el = id => doc.getElementById(id);
   return { win, doc, booted, el };

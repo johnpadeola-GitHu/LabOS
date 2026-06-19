@@ -28,7 +28,7 @@ function bootApp(){
   // Instead:
   //   • Activation success → completeOnboarding()/enterTenantMode() registers
   //     the device against the provisioned tenant.
-  //   • "Explore demo" → onbExploreDemo()/enterTenantMode('tnt_vitalis').
+  //   • "Explore demo" → onbExploreDemo()/enterTenantMode(realTenantId).
   //   • Returning session (state restored below) → re-register the cached tenant.
   // Only auto-register here when we are NOT about to show the gate, i.e. a prior
   // session is being restored.

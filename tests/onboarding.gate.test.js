@@ -120,7 +120,7 @@ describe('Invite-only onboarding gate', () => {
     win.onbExploreDemo();
     expect(S().mode).toBe('tenant');
     expect(S().isDemoSession).toBe(true);
-    expect(S().activeTenantId).toBe('tnt_vitalis');
+    expect(S().activeTenantId).toBe('440a5c9e-605e-4d53-9aff-dc7562087575');
   });
 
   it('the admin sign-in path shows credentials form when backend is configured', () => {

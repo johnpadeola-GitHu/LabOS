@@ -14,7 +14,7 @@ function setup() {
       const el = doc.createElement('div'); el.id = id; doc.body.appendChild(el);
     }
   });
-  win.enterTenantMode('tnt_vitalis');
+  win.enterTenantMode('440a5c9e-605e-4d53-9aff-dc7562087575');
   // Reset RX_STATE so each test starts fresh.
   win.RX_STATE = { selected: new Set(['FBC']), search: '', priority: 'Routine',
                    expanded: new Set(['Hematology']), patientId: null, patientLabel: '' };
@@ -191,7 +191,7 @@ describe('Shared patient combobox — global application', () => {
       ['modal-root','app'].forEach(id=>{
         if(!doc.getElementById(id)){ const el=doc.createElement('div'); el.id=id; doc.body.appendChild(el); }
       });
-      win.enterTenantMode('tnt_vitalis');
+      win.enterTenantMode('440a5c9e-605e-4d53-9aff-dc7562087575');
       open(win);
       const input = doc.getElementById('pc-input-'+fieldId);
       const list  = doc.getElementById('pc-list-'+fieldId);
@@ -211,7 +211,7 @@ describe('Shared patient combobox — global application', () => {
     ['modal-root','app'].forEach(id=>{
       if(!doc.getElementById(id)){ const el=doc.createElement('div'); el.id=id; doc.body.appendChild(el); }
     });
-    win.enterTenantMode('tnt_vitalis');
+    win.enterTenantMode('440a5c9e-605e-4d53-9aff-dc7562087575');
     win.openComposeNotification();
     const first = booted.APP_STATE.patients[0];
     win.pcSearch('cn-patient', first.name.slice(0, 4));
@@ -227,7 +227,7 @@ describe('Shared patient combobox — global application', () => {
     ['modal-root','app'].forEach(id=>{
       if(!doc.getElementById(id)){ const el=doc.createElement('div'); el.id=id; doc.body.appendChild(el); }
     });
-    win.enterTenantMode('tnt_vitalis');
+    win.enterTenantMode('440a5c9e-605e-4d53-9aff-dc7562087575');
     win.openComposeNotification();
     if(!win.PC_STATE) win.PC_STATE = {};
     win.PC_STATE['cn-patient'] = { patientId: null, patientLabel: '' };
@@ -243,7 +243,7 @@ describe('Shared patient combobox — global application', () => {
     ['modal-root','app'].forEach(id=>{
       if(!doc.getElementById(id)){ const el=doc.createElement('div'); el.id=id; doc.body.appendChild(el); }
     });
-    win.enterTenantMode('tnt_vitalis');
+    win.enterTenantMode('440a5c9e-605e-4d53-9aff-dc7562087575');
     win.openComposeNotification();
     const p = booted.APP_STATE.patients[0];
     win.pcSelect('cn-patient', p.id, p.name+' — '+p.id);

@@ -10,7 +10,7 @@ describe('Data integrity', () => {
   it('seeds 5 tenants with the expected statuses', () => {
     const { APP_STATE } = bootLabOS();
     const ids = APP_STATE.tenants.map((t) => t.id);
-    expect(ids).toContain('tnt_vitalis');
+    expect(ids).toContain('440a5c9e-605e-4d53-9aff-dc7562087575');
     expect(ids).toContain('tnt_pathcare');
     expect(APP_STATE.tenants.length).toBeGreaterThanOrEqual(5);
   });
@@ -65,7 +65,7 @@ describe('Routing & rendering', () => {
           S().isPlatformAdmin = true;
         } else {
           S().mode = 'tenant';
-          S().activeTenantId = 'tnt_vitalis';
+          S().activeTenantId = '440a5c9e-605e-4d53-9aff-dc7562087575';
         }
         const el = win.document.createElement('div');
         route.render(el);
@@ -131,7 +131,7 @@ describe('Modals', () => {
   it('opens key modals with non-trivial output', () => {
     const { win } = bootLabOS();
     win.S().mode = 'tenant';
-    win.S().activeTenantId = 'tnt_vitalis';
+    win.S().activeTenantId = '440a5c9e-605e-4d53-9aff-dc7562087575';
     const failures = [];
     for (const m of MODALS) {
       if (m === 'capture-vitals') win.MODAL_CTX = { patientId: 'PT-2026-0142' };
@@ -186,7 +186,7 @@ describe('Licence enforcement', () => {
 
   it('registers a device and enters valid state', () => {
     const { LicenseCore } = bootLabOS();
-    LicenseCore.registerDevice('tnt_vitalis');
+    LicenseCore.registerDevice('440a5c9e-605e-4d53-9aff-dc7562087575');
     expect(LicenseCore.state.status).toBe('valid');
   });
 });

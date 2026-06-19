@@ -550,14 +550,14 @@ const APP_STATE = {
     userId:'usr_lab_dir',
     userName:'Dr. Ade Ogundimu',
     userRole:'TENANT_ADMIN', // TENANT_ADMIN | LAB_DIRECTOR | PATHOLOGIST | ... | PLATFORM_SUPER_ADMIN
-    activeTenantId:'tnt_vitalis',
+    activeTenantId:'440a5c9e-605e-4d53-9aff-dc7562087575',
     activeCentreId:'ctr_ikeja',
     isPlatformAdmin:true   // For demo: this user can also access platform mode
   },
 
   tenants: [
     {
-      id:'tnt_vitalis',
+      id:'440a5c9e-605e-4d53-9aff-dc7562087575',
       name:'Vitalis Diagnostics',
       parentOrg:'Vitalis Health Group',
       rcNumber:'RC-1428902',
@@ -662,11 +662,11 @@ const APP_STATE = {
 
   // Tenant-scoped centres (the existing "branches" in the topbar become these)
   centres:[
-    {id:'ctr_ikeja',    tenantId:'tnt_vitalis', code:'IKJ-HQ',  name:'Ikeja Head Office',     address:'14 Allen Avenue, Ikeja',          phone:'+234 803 100 4400', manager:'Dr. Ade Ogundimu',   status:'active', isHQ:true},
-    {id:'ctr_lekki',    tenantId:'tnt_vitalis', code:'LKI-RNL', name:'Lekki Renal Centre',    address:'5 Admiralty Way, Lekki Phase 1',  phone:'+234 803 100 4401', manager:'Dr. Kunle Bamigboye', status:'active'},
-    {id:'ctr_vi',       tenantId:'tnt_vitalis', code:'VI-DGC',  name:'Victoria Island Diagnostic', address:'22 Adeola Odeku, V/I',       phone:'+234 803 100 4402', manager:'Dr. Folake Aigbogun', status:'active'},
-    {id:'ctr_yaba',     tenantId:'tnt_vitalis', code:'YBA-COL', name:'Yaba Collection Centre', address:'10 Herbert Macaulay, Yaba',      phone:'+234 803 100 4403', manager:'Adunni Ladipo',       status:'active'},
-    {id:'ctr_apapa',    tenantId:'tnt_vitalis', code:'APA-COL', name:'Apapa Satellite',        address:'9 Burma Road, Apapa',            phone:'+234 803 100 4404', manager:'Femi Onatade',        status:'active'}
+    {id:'ctr_ikeja',    tenantId:'440a5c9e-605e-4d53-9aff-dc7562087575', code:'IKJ-HQ',  name:'Ikeja Head Office',     address:'14 Allen Avenue, Ikeja',          phone:'+234 803 100 4400', manager:'Dr. Ade Ogundimu',   status:'active', isHQ:true},
+    {id:'ctr_lekki',    tenantId:'440a5c9e-605e-4d53-9aff-dc7562087575', code:'LKI-RNL', name:'Lekki Renal Centre',    address:'5 Admiralty Way, Lekki Phase 1',  phone:'+234 803 100 4401', manager:'Dr. Kunle Bamigboye', status:'active'},
+    {id:'ctr_vi',       tenantId:'440a5c9e-605e-4d53-9aff-dc7562087575', code:'VI-DGC',  name:'Victoria Island Diagnostic', address:'22 Adeola Odeku, V/I',       phone:'+234 803 100 4402', manager:'Dr. Folake Aigbogun', status:'active'},
+    {id:'ctr_yaba',     tenantId:'440a5c9e-605e-4d53-9aff-dc7562087575', code:'YBA-COL', name:'Yaba Collection Centre', address:'10 Herbert Macaulay, Yaba',      phone:'+234 803 100 4403', manager:'Adunni Ladipo',       status:'active'},
+    {id:'ctr_apapa',    tenantId:'440a5c9e-605e-4d53-9aff-dc7562087575', code:'APA-COL', name:'Apapa Satellite',        address:'9 Burma Road, Apapa',            phone:'+234 803 100 4404', manager:'Femi Onatade',        status:'active'}
   ],
 
   // SaaS plan catalogue — annual and monthly billing
@@ -865,7 +865,7 @@ const APP_STATE = {
   ],
 
   subscriptions:[
-    {id:'sub_vitalis',   tenantId:'tnt_vitalis',   planId:'plan_professional', status:'ACTIVE',   billingCycle:'ANNUAL', currentPeriodStart:'2025-08-01', currentPeriodEnd:'2026-08-01', autoRenew:true,  provider:'Paystack', nextChargeAmount:1080000},
+    {id:'sub_vitalis',   tenantId:'440a5c9e-605e-4d53-9aff-dc7562087575',   planId:'plan_professional', status:'ACTIVE',   billingCycle:'ANNUAL', currentPeriodStart:'2025-08-01', currentPeriodEnd:'2026-08-01', autoRenew:true,  provider:'Paystack', nextChargeAmount:1080000},
     {id:'sub_pathcare',  tenantId:'tnt_pathcare',  planId:'plan_enterprise',   status:'ACTIVE',   billingCycle:'ANNUAL', currentPeriodStart:'2025-09-15', currentPeriodEnd:'2026-09-15', autoRenew:true,  provider:'Paystack', nextChargeAmount:2880000},
     {id:'sub_hauwa',     tenantId:'tnt_hauwa',     planId:'plan_standard',       status:'TRIALING', billingCycle:'ANNUAL', currentPeriodStart:'2026-05-02', currentPeriodEnd:'2026-05-16', autoRenew:true,  provider:'Paystack', nextChargeAmount:540000, trialEndsAt:'2026-05-16'},
     {id:'sub_meridian',  tenantId:'tnt_meridian',  planId:'plan_professional', status:'PAST_DUE', billingCycle:'ANNUAL', currentPeriodStart:'2025-05-15', currentPeriodEnd:'2026-05-15', autoRenew:true,  provider:'Paystack', nextChargeAmount:1080000, gracePeriodEndsAt:'2026-05-22', retryAttempts:2},
@@ -874,8 +874,8 @@ const APP_STATE = {
 
   // Subscription billing invoices (DIFFERENT from patient invoices in the existing prototype)
   subInvoices:[
-    {id:'LABOS-INV-2025-00184', tenantId:'tnt_vitalis',  amount:1080000, issued:'2025-08-01', due:'2025-08-15', paid:'2025-08-01', status:'PAID',    method:'Paystack · Visa ··4421',       period:'Aug 2025 – Aug 2026'},
-    {id:'LABOS-INV-2024-00091', tenantId:'tnt_vitalis',  amount:1080000, issued:'2024-08-01', due:'2024-08-15', paid:'2024-08-03', status:'PAID',    method:'Paystack · Visa ··4421',       period:'Aug 2024 – Aug 2025'},
+    {id:'LABOS-INV-2025-00184', tenantId:'440a5c9e-605e-4d53-9aff-dc7562087575',  amount:1080000, issued:'2025-08-01', due:'2025-08-15', paid:'2025-08-01', status:'PAID',    method:'Paystack · Visa ··4421',       period:'Aug 2025 – Aug 2026'},
+    {id:'LABOS-INV-2024-00091', tenantId:'440a5c9e-605e-4d53-9aff-dc7562087575',  amount:1080000, issued:'2024-08-01', due:'2024-08-15', paid:'2024-08-03', status:'PAID',    method:'Paystack · Visa ··4421',       period:'Aug 2024 – Aug 2025'},
     {id:'LABOS-INV-2025-00185', tenantId:'tnt_pathcare', amount:2880000, issued:'2025-09-15', due:'2025-09-29', paid:'2025-09-15', status:'PAID',    method:'Paystack · Bank transfer',     period:'Sep 2025 – Sep 2026'},
     {id:'LABOS-INV-2024-00088', tenantId:'tnt_pathcare', amount:2880000, issued:'2024-09-15', due:'2024-09-29', paid:'2024-09-15', status:'PAID',    method:'Paystack · Bank transfer',     period:'Sep 2024 – Sep 2025'},
     {id:'LABOS-INV-2026-00188', tenantId:'tnt_meridian', amount:1080000, issued:'2026-05-15', due:'2026-05-29', paid:null,         status:'OVERDUE', method:'Paystack · failed × 2',       period:'May 2026 – May 2027'},
@@ -886,8 +886,8 @@ const APP_STATE = {
 
   // Payment methods on file per tenant
   paymentMethods:[
-    {id:'pm_v1', tenantId:'tnt_vitalis',  provider:'Paystack',    type:'card', brand:'Visa',       last4:'4421', expiryMonth:8,  expiryYear:2028, isDefault:true},
-    {id:'pm_v2', tenantId:'tnt_vitalis',  provider:'Paystack',    type:'card', brand:'Mastercard', last4:'1180', expiryMonth:3,  expiryYear:2027, isDefault:false},
+    {id:'pm_v1', tenantId:'440a5c9e-605e-4d53-9aff-dc7562087575',  provider:'Paystack',    type:'card', brand:'Visa',       last4:'4421', expiryMonth:8,  expiryYear:2028, isDefault:true},
+    {id:'pm_v2', tenantId:'440a5c9e-605e-4d53-9aff-dc7562087575',  provider:'Paystack',    type:'card', brand:'Mastercard', last4:'1180', expiryMonth:3,  expiryYear:2027, isDefault:false},
     {id:'pm_p1', tenantId:'tnt_pathcare', provider:'Paystack',    type:'bank', brand:'GTBank',     last4:'0042', isDefault:true},
     {id:'pm_m1', tenantId:'tnt_meridian', provider:'Paystack',    type:'card', brand:'Verve',      last4:'8821', expiryMonth:11, expiryYear:2026, isDefault:true, expiringSoon:true}
   ],
@@ -922,7 +922,7 @@ const APP_STATE = {
   },
 
   platformAudit:[
-    {time:'2026-05-15 14:22', actor:'platform@labos.ng',  action:'subscription.upgrade', target:'tnt_vitalis',  details:'Upgraded CoreCare → Professional', ip:'196.46.22.14'},
+    {time:'2026-05-15 14:22', actor:'platform@labos.ng',  action:'subscription.upgrade', target:'440a5c9e-605e-4d53-9aff-dc7562087575',  details:'Upgraded CoreCare → Professional', ip:'196.46.22.14'},
     {time:'2026-05-12 09:08', actor:'billing@labos.ng',   action:'payment.refund',       target:'tnt_pathcare', details:'Refunded ₦85,000 (duplicate charge)', ip:'196.46.22.14'},
     {time:'2026-05-08 11:30', actor:'platform@labos.ng',  action:'tenant.soft_suspend',  target:'tnt_zenith',   details:'Auto: grace period elapsed', ip:'system'},
     {time:'2026-05-02 16:45', actor:'platform@labos.ng',  action:'tenant.create',        target:'tnt_hauwa',    details:'Trial signup via onboarding wizard', ip:'system'},
@@ -933,7 +933,7 @@ const APP_STATE = {
 
   supportTickets:[
     {id:'TKT-2026-4421', tenantId:'tnt_meridian', subject:'Cannot release renal report',     status:'open',     priority:'high',    created:'2026-04-28 09:45', assignee:'support@labos.ng',   lastUpdate:'2026-05-14 11:20'},
-    {id:'TKT-2026-4408', tenantId:'tnt_vitalis',  subject:'API key rotation question',       status:'open',     priority:'normal',  created:'2026-05-11 14:22', assignee:'support@labos.ng',   lastUpdate:'2026-05-13 09:08'},
+    {id:'TKT-2026-4408', tenantId:'440a5c9e-605e-4d53-9aff-dc7562087575',  subject:'API key rotation question',       status:'open',     priority:'normal',  created:'2026-05-11 14:22', assignee:'support@labos.ng',   lastUpdate:'2026-05-13 09:08'},
     {id:'TKT-2026-4391', tenantId:'tnt_hauwa',    subject:'Help configuring Termii sender ID', status:'pending', priority:'normal', created:'2026-05-04 10:11', assignee:'onboarding@labos.ng', lastUpdate:'2026-05-04 16:30'},
     {id:'TKT-2026-4374', tenantId:'tnt_pathcare', subject:'Custom report header request',    status:'closed',   priority:'low',     created:'2026-04-22 08:00', assignee:'support@labos.ng',   lastUpdate:'2026-04-29 14:00'}
   ],
@@ -941,7 +941,7 @@ const APP_STATE = {
   // Per-tenant price overrides for the test catalogue. Keyed by tenantId → code → price.
   // If a code is not present here, the catalog default applies.
   tenantPricing: {
-    'tnt_vitalis': {
+    '440a5c9e-605e-4d53-9aff-dc7562087575': {
       // Vitalis charges modest markup on common chemistries
       FBC:5000, LFT:11000, KFT:10000, LIPP:9500, HBA:8500, URI:3500,
       // Slightly higher on send-outs (logistics fee built in)
@@ -16715,7 +16715,7 @@ function renderShell(){
   const initials = sess.userName.split(' ').map(s=>s[0]).join('').slice(0,2);
   const switchLink = sess.isPlatformAdmin
     ? (sess.mode==='platform'
-        ? `<span class="switch-link" onclick="enterTenantMode('${sess.activeTenantId||'tnt_vitalis'}')">Switch to tenant view ↗</span>`
+        ? `<span class="switch-link" onclick="enterTenantMode('${sess.activeTenantId||'440a5c9e-605e-4d53-9aff-dc7562087575'}')">Switch to tenant view ↗</span>`
         : `<span class="switch-link" onclick="enterPlatformMode()">Switch to platform mode ↗</span>`)
     : '';
 
@@ -16786,7 +16786,7 @@ function enterReferralMode(doctorName, referralToken){
   S().mode = 'referral';
   S().referralDoctor = doctorName || 'Referring Clinician';
   S().referralToken  = referralToken || '';
-  S().activeTenantId = S().activeTenantId || 'tnt_vitalis';
+  S().activeTenantId = S().activeTenantId || '440a5c9e-605e-4d53-9aff-dc7562087575';
   LicenseCore.registerDevice(S().activeTenantId);
   document.getElementById('app').style.display = '';
   document.getElementById('onboarding-root').innerHTML = '';
@@ -18418,12 +18418,12 @@ async function onbActivate(){
 // Explicit demo entry — the only sanctioned way into the sample tenant.
 function onbExploreDemo(){
   if(typeof toast === 'function') toast('Loading the interactive demo laboratory.', {type:'info', duration:3000});
-  S().activeTenantId = 'tnt_vitalis';
+  S().activeTenantId = '440a5c9e-605e-4d53-9aff-dc7562087575';
   S().activeCentreId = 'ctr_ikeja';
   S().userName = 'Demo User';
   S().userRole = 'TENANT_ADMIN';
   S().isDemoSession = true;
-  enterTenantMode('tnt_vitalis');
+  enterTenantMode('440a5c9e-605e-4d53-9aff-dc7562087575');
 }
 
 function onbContactProvisioning(){
@@ -18624,7 +18624,7 @@ async function submitRealSignIn(){
 function onbReferralSignIn(){
   // In production: POST /api/referral/authenticate with NPI/MDCN number + OTP.
   // In demo: enter as Dr. Adekunle Smith who has referred several patients.
-  enterTenantMode('tnt_vitalis');
+  enterTenantMode('440a5c9e-605e-4d53-9aff-dc7562087575');
   S().userName = 'Dr. Adekunle Smith';
   S().userRole = 'referral_clinician';
   enterReferralMode('Dr. Adekunle Smith', 'DEMO-REFERRAL-TOKEN');

@@ -143,7 +143,7 @@ describe('Module gating — nav groups by plan', () => {
 
   it('Professional tenant does not see Research & Genomics (all items gated research:false)', () => {
     const { win } = setup();
-    win.enterTenantMode('tnt_vitalis'); // professional
+    win.enterTenantMode('440a5c9e-605e-4d53-9aff-dc7562087575'); // professional
     win.renderShell();
     const nav = win.document.getElementById('sidebar-nav').innerHTML;
     expect(nav).not.toContain('Research &amp; Genomics');
@@ -152,7 +152,7 @@ describe('Module gating — nav groups by plan', () => {
 
   it('Professional tenant does not see CT Scan or MRI (imagingAdvanced:false)', () => {
     const { win } = setup();
-    win.enterTenantMode('tnt_vitalis');
+    win.enterTenantMode('440a5c9e-605e-4d53-9aff-dc7562087575');
     win.renderShell();
     const nav = win.document.getElementById('sidebar-nav').innerHTML;
     expect(nav).not.toContain('CT Scan');
@@ -172,22 +172,22 @@ describe('Module gating — nav groups by plan', () => {
 describe('Centre hard limit — Professional (max 10)', () => {
   it('enforceCentreLimit returns false when under the limit', () => {
     const { win, booted } = setup(); const APP_STATE = booted.APP_STATE;
-    win.enterTenantMode('tnt_vitalis'); // professional, max 10
-    const orig = APP_STATE.centres.filter(c => c.tenantId === 'tnt_vitalis');
-    APP_STATE.centres = APP_STATE.centres.filter(c => c.tenantId !== 'tnt_vitalis');
-    APP_STATE.centres.push({ id: 'c1', tenantId: 'tnt_vitalis', name: 'HQ' });
+    win.enterTenantMode('440a5c9e-605e-4d53-9aff-dc7562087575'); // professional, max 10
+    const orig = APP_STATE.centres.filter(c => c.tenantId === '440a5c9e-605e-4d53-9aff-dc7562087575');
+    APP_STATE.centres = APP_STATE.centres.filter(c => c.tenantId !== '440a5c9e-605e-4d53-9aff-dc7562087575');
+    APP_STATE.centres.push({ id: 'c1', tenantId: '440a5c9e-605e-4d53-9aff-dc7562087575', name: 'HQ' });
     expect(win.enforceCentreLimit('test')).toBe(false);
-    APP_STATE.centres = [...APP_STATE.centres.filter(c => c.tenantId !== 'tnt_vitalis'), ...orig];
+    APP_STATE.centres = [...APP_STATE.centres.filter(c => c.tenantId !== '440a5c9e-605e-4d53-9aff-dc7562087575'), ...orig];
   });
 
   it('enforceCentreLimit returns true (blocked) when at the limit of 10', () => {
     const { win, booted } = setup(); const APP_STATE = booted.APP_STATE;
-    win.enterTenantMode('tnt_vitalis');
+    win.enterTenantMode('440a5c9e-605e-4d53-9aff-dc7562087575');
     // Fill exactly 10 centres
-    APP_STATE.centres = APP_STATE.centres.filter(c => c.tenantId !== 'tnt_vitalis');
-    APP_STATE.tenants.find(t => t.id === 'tnt_vitalis').branches = [];
+    APP_STATE.centres = APP_STATE.centres.filter(c => c.tenantId !== '440a5c9e-605e-4d53-9aff-dc7562087575');
+    APP_STATE.tenants.find(t => t.id === '440a5c9e-605e-4d53-9aff-dc7562087575').branches = [];
     for (let i = 0; i < 10; i++) {
-      APP_STATE.centres.push({ id: `cl${i}`, tenantId: 'tnt_vitalis', name: `Centre ${i}` });
+      APP_STATE.centres.push({ id: `cl${i}`, tenantId: '440a5c9e-605e-4d53-9aff-dc7562087575', name: `Centre ${i}` });
     }
     expect(win.enforceCentreLimit('add a branch')).toBe(true); // blocked at 10
   });
@@ -206,7 +206,7 @@ describe('Centre hard limit — Professional (max 10)', () => {
 describe('Staff limit enforcement', () => {
   it('enforceStaffLimit returns false under the limit', () => {
     const { win, booted } = setup(); const APP_STATE = booted.APP_STATE;
-    win.enterTenantMode('tnt_vitalis'); // professional, limit 30
+    win.enterTenantMode('440a5c9e-605e-4d53-9aff-dc7562087575'); // professional, limit 30
     const orig = APP_STATE.staff.slice();
     APP_STATE.staff = [{ name: 'A', active: true }];
     expect(win.enforceStaffLimit()).toBe(false);
@@ -215,7 +215,7 @@ describe('Staff limit enforcement', () => {
 
   it('planTier returns correct tier per plan', () => {
     const { win } = setup();
-    win.enterTenantMode('tnt_vitalis'); // professional = tier 3
+    win.enterTenantMode('440a5c9e-605e-4d53-9aff-dc7562087575'); // professional = tier 3
     expect(win.planTier()).toBe(3);
     win.enterTenantMode('tnt_pathcare'); // enterprise = tier 4
     expect(win.planTier()).toBe(4);
