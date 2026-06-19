@@ -3772,7 +3772,7 @@ function openHistopathCase(id){  const c = APP_STATE.histopathCases.find(x=>x.id
               <div class="image-thumb"><div class="thumb-placeholder">📷</div><div class="thumb-label">Specimen overview</div></div>
               <div class="image-thumb"><div class="thumb-placeholder">📷</div><div class="thumb-label">Cut surface</div></div>
               <div class="image-thumb"><div class="thumb-placeholder">📷</div><div class="thumb-label">Inked margins</div></div>
-              <div class="image-thumb add-thumb" onclick="toast('Image upload is handled by the production backend (S3/R2). Configure in Settings → Integrations.', {type:'info', title:'Image upload', duration:4000})"><div class="thumb-placeholder">+</div><div class="thumb-label">Add image</div></div>
+              <div class="image-thumb add-thumb" onclick="pickAndUploadImage({caseId:'${esc(c.id)}', category:'gross', label:'Gross image', onSuccess:()=>navigate(APP_STATE.currentRoute)})"><div class="thumb-placeholder">+</div><div class="thumb-label">Add image</div></div>
             </div>
           </div>
         </div>
@@ -18632,6 +18632,165 @@ function onbReferralSignIn(){
 
 // Direct sign-in using Supabase Auth REST API — no SDK, no modules.
 // Works the moment the page loads because it is just a fetch() call.
+// ── Clinical image upload (Supabase Storage) ──────────────────────────────────
+// Uses direct fetch() against the Storage REST API — consistent with our
+// other Supabase calls, avoids any SDK loading/timing issues.
+
+async function uploadClinicalImage(file, opts){
+  const cfg = window.LABOS_CONFIG || {};
+  if(!cfg.supabaseUrl || !cfg.supabaseAnonKey){
+    toast('Image upload requires a connected backend. This is a demo session.', {type:'warn', title:'Demo mode', duration:4000});
+    return null;
+  }
+  if(!cfg.accessToken){
+    toast('Please sign in to upload images.', {type:'error'});
+    return null;
+  }
+
+  const tenantId = cfg.tenantId || S().activeTenantId;
+  if(!tenantId){
+    toast('No laboratory context found.', {type:'error'});
+    return null;
+  }
+
+  // Validate file
+  const allowedTypes = ['image/jpeg','image/png','image/webp','image/heic'];
+  if(!allowedTypes.includes(file.type)){
+    toast('Only JPEG, PNG, WebP, or HEIC images are allowed.', {type:'error', title:'Invalid file type'});
+    return null;
+  }
+  const maxSize = 10 * 1024 * 1024; // 10 MB
+  if(file.size > maxSize){
+    toast('Image must be under 10 MB.', {type:'error', title:'File too large'});
+    return null;
+  }
+
+  const caseId   = opts.caseId   || 'general';
+  const category = opts.category || 'gross';
+  const label    = opts.label    || file.name;
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const path     = `${tenantId}/${caseId}/${Date.now()}_${safeName}`;
+
+  try {
+    // Step 1: Upload the binary to Supabase Storage
+    const uploadRes = await fetch(
+      `${cfg.supabaseUrl}/storage/v1/object/clinical-images/${path}`, {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + cfg.accessToken,
+        'apikey':        cfg.supabaseAnonKey,
+        'Content-Type':  file.type,
+        'x-upsert':      'false'
+      },
+      body: file
+    });
+
+    if(!uploadRes.ok){
+      const errBody = await uploadRes.json().catch(()=>({}));
+      toast('Upload failed: ' + (errBody.message || uploadRes.statusText), {type:'error', title:'Upload error'});
+      return null;
+    }
+
+    // Step 2: Record metadata in clinical_images table
+    const metaRes = await fetch(`${cfg.supabaseUrl}/rest/v1/clinical_images`, {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + cfg.accessToken,
+        'apikey':        cfg.supabaseAnonKey,
+        'Content-Type':  'application/json',
+        'Prefer':        'return=representation'
+      },
+      body: JSON.stringify({
+        tenant_id:    tenantId,
+        storage_path: path,
+        case_id:      caseId,
+        patient_id:   opts.patientId || null,
+        category:     category,
+        label:        label,
+        uploaded_by:  cfg.userId || null,
+        file_size:    file.size,
+        mime_type:    file.type
+      })
+    });
+
+    if(!metaRes.ok){
+      // File uploaded but metadata write failed — non-fatal, file is still there
+      console.warn('clinical_images metadata insert failed');
+    }
+
+    const metaData = await metaRes.json().catch(()=>[]);
+    toast(`${label} uploaded successfully.`, {type:'success', title:'Image uploaded'});
+    return { path, id: metaData[0]?.id || null };
+
+  } catch(err){
+    toast('Upload failed. Check your connection and try again.', {type:'error'});
+    return null;
+  }
+}
+
+// Get a temporary signed URL to display/download an uploaded image
+async function getClinicalImageUrl(storagePath){
+  const cfg = window.LABOS_CONFIG || {};
+  if(!cfg.supabaseUrl || !cfg.accessToken) return null;
+
+  try {
+    const res = await fetch(
+      `${cfg.supabaseUrl}/storage/v1/object/sign/clinical-images/${storagePath}`, {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + cfg.accessToken,
+        'apikey':        cfg.supabaseAnonKey,
+        'Content-Type':  'application/json'
+      },
+      body: JSON.stringify({ expiresIn: 3600 }) // 1 hour
+    });
+    if(!res.ok) return null;
+    const data = await res.json();
+    return data.signedURL ? cfg.supabaseUrl + '/storage/v1' + data.signedURL : null;
+  } catch(err){
+    return null;
+  }
+}
+
+// List all images for a given case (histopath case, sample, etc.)
+async function listClinicalImages(caseId){
+  const cfg = window.LABOS_CONFIG || {};
+  if(!cfg.supabaseUrl || !cfg.accessToken) return [];
+
+  try {
+    const res = await fetch(
+      `${cfg.supabaseUrl}/rest/v1/clinical_images?case_id=eq.${encodeURIComponent(caseId)}&select=*&order=created_at.desc`, {
+      headers: {
+        'Authorization': 'Bearer ' + cfg.accessToken,
+        'apikey':        cfg.supabaseAnonKey
+      }
+    });
+    if(!res.ok) return [];
+    return await res.json();
+  } catch(err){
+    return [];
+  }
+}
+
+// Trigger a file picker and upload the selected image, refreshing the view
+function pickAndUploadImage(opts){
+  const cfg = window.LABOS_CONFIG || {};
+  if(!cfg.supabaseUrl || !cfg.supabaseAnonKey){
+    toast('Image upload requires a connected backend. This is a demo session.', {type:'info', title:'Demo mode', duration:4000});
+    return;
+  }
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/jpeg,image/png,image/webp,image/heic';
+  input.onchange = async (e) => {
+    const file = e.target.files[0];
+    if(!file) return;
+    const result = await uploadClinicalImage(file, opts);
+    if(result && opts.onSuccess) opts.onSuccess(result);
+  };
+  input.click();
+}
+
 async function onbSignInDirect(){
   const email    = (document.getElementById('onb-signin-email')    || {}).value || '';
   const password = (document.getElementById('onb-signin-password') || {}).value || '';

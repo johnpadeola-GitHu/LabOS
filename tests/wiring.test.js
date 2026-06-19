@@ -923,6 +923,8 @@ describe('Housekeeping — previously-stub buttons now functional', () => {
       'helpRequestArticle','helpGoToArticle','trapFocusInModal','releaseFocusTrap','saveAsDraft',
       // auth
       'submitRealSignIn','onbSignInDirect',
+      // clinical image upload (Supabase Storage)
+      'uploadClinicalImage','getClinicalImageUrl','listClinicalImages','pickAndUploadImage',
       // gateway parsers + live test
       'runLiveParseTest','injectASTMSample','injectHL7Sample',
       // gateway modal handlers

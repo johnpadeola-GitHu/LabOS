@@ -298,3 +298,95 @@ describe('Platform super-admin sees full tenant admin nav when browsing a tenant
     expect(win.isAdmin()).toBe(false);
   });
 });
+
+describe('Clinical image upload (Supabase Storage)', () => {
+  it('uploadClinicalImage rejects when no backend configured (demo mode)', async () => {
+    const { win } = bootLabOS();
+    win.LABOS_CONFIG = {}; // demo mode — no supabaseUrl
+    const file = { name: 'test.jpg', type: 'image/jpeg', size: 1000 };
+    const result = await win.uploadClinicalImage(file, { caseId: 'CASE-1' });
+    expect(result).toBeNull();
+  });
+
+  it('uploadClinicalImage rejects disallowed file types', async () => {
+    const { win } = bootLabOS();
+    win.LABOS_CONFIG = { supabaseUrl: 'https://test.supabase.co', supabaseAnonKey: 'key', accessToken: 'token', tenantId: 'tenant-1' };
+    const file = { name: 'malware.exe', type: 'application/x-msdownload', size: 1000 };
+    const result = await win.uploadClinicalImage(file, { caseId: 'CASE-1' });
+    expect(result).toBeNull();
+  });
+
+  it('uploadClinicalImage rejects files over 10MB', async () => {
+    const { win } = bootLabOS();
+    win.LABOS_CONFIG = { supabaseUrl: 'https://test.supabase.co', supabaseAnonKey: 'key', accessToken: 'token', tenantId: 'tenant-1' };
+    const file = { name: 'huge.jpg', type: 'image/jpeg', size: 11 * 1024 * 1024 };
+    const result = await win.uploadClinicalImage(file, { caseId: 'CASE-1' });
+    expect(result).toBeNull();
+  });
+
+  it('uploadClinicalImage rejects when not signed in (no access token)', async () => {
+    const { win } = bootLabOS();
+    win.LABOS_CONFIG = { supabaseUrl: 'https://test.supabase.co', supabaseAnonKey: 'key', tenantId: 'tenant-1' };
+    const file = { name: 'test.jpg', type: 'image/jpeg', size: 1000 };
+    const result = await win.uploadClinicalImage(file, { caseId: 'CASE-1' });
+    expect(result).toBeNull();
+  });
+
+  it('uploadClinicalImage builds the correct tenant-scoped storage path and uploads', async () => {
+    const { win, APP_STATE } = bootLabOS();
+    win.LABOS_CONFIG = {
+      supabaseUrl: 'https://test.supabase.co',
+      supabaseAnonKey: 'anon-key',
+      accessToken: 'session-token',
+      tenantId: 'tenant-abc',
+      userId: 'user-1'
+    };
+    APP_STATE.session.activeTenantId = 'tenant-abc';
+
+    let uploadUrl = null, uploadHeaders = null;
+    let metaUrl = null, metaBody = null;
+    win.fetch = (url, opts) => {
+      if (url.includes('/storage/v1/object/clinical-images/')) {
+        uploadUrl = url; uploadHeaders = opts.headers;
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ Key: 'ok' }) });
+      }
+      if (url.includes('/rest/v1/clinical_images')) {
+        metaUrl = url; metaBody = JSON.parse(opts.body);
+        return Promise.resolve({ ok: true, json: () => Promise.resolve([{ id: 'img-123' }]) });
+      }
+      return Promise.resolve({ ok: false, json: () => Promise.resolve({}) });
+    };
+
+    const file = { name: 'specimen.jpg', type: 'image/jpeg', size: 50000 };
+    const result = await win.uploadClinicalImage(file, { caseId: 'HISTO-001', category: 'gross', label: 'Specimen overview' });
+
+    expect(uploadUrl).toContain('tenant-abc/HISTO-001/');
+    expect(uploadUrl).toContain('specimen.jpg');
+    expect(uploadHeaders['Content-Type']).toBe('image/jpeg');
+    expect(metaBody.tenant_id).toBe('tenant-abc');
+    expect(metaBody.case_id).toBe('HISTO-001');
+    expect(metaBody.category).toBe('gross');
+    expect(result).toBeTruthy();
+    expect(result.id).toBe('img-123');
+  });
+
+  it('listClinicalImages returns empty array when not configured', async () => {
+    const { win } = bootLabOS();
+    win.LABOS_CONFIG = {};
+    const result = await win.listClinicalImages('CASE-1');
+    expect(result).toEqual([]);
+  });
+
+  it('listClinicalImages queries the correct case-scoped endpoint', async () => {
+    const { win } = bootLabOS();
+    win.LABOS_CONFIG = { supabaseUrl: 'https://test.supabase.co', supabaseAnonKey: 'key', accessToken: 'token' };
+    let calledUrl = null;
+    win.fetch = (url) => {
+      calledUrl = url;
+      return Promise.resolve({ ok: true, json: () => Promise.resolve([{ id: '1', label: 'Test' }]) });
+    };
+    const result = await win.listClinicalImages('HISTO-001');
+    expect(calledUrl).toContain('case_id=eq.HISTO-001');
+    expect(result.length).toBe(1);
+  });
+});
