@@ -16735,6 +16735,13 @@ function renderShell(){
 
 function enterTenantMode(tenantId){
   S().mode = 'tenant';
+  // NOTE: isPlatformAdmin is intentionally NOT touched here. It records
+  // whether the signed-in ACCOUNT holds platform privileges, independent
+  // of which mode they are currently viewing — a platform admin browsing
+  // a tenant's view (via "Switch to tenant view") must keep isPlatformAdmin
+  // true so the switch-back link still works. Sign-in (onbSignInDirect)
+  // is responsible for setting isPlatformAdmin correctly from the
+  // account's actual is_platform flag exactly once, at login.
   if(tenantId){
     S().activeTenantId = tenantId;
     const firstCentre = tenantCentres(tenantId)[0];
@@ -18710,12 +18717,18 @@ async function onbSignInDirect(){
     const tenantId = profile && profile.tenant_id;
     const name     = (profile && profile.full_name) || email;
 
-    S().userName      = name;
-    S().userRole      = role;
-    S().isDemoSession = false;
+    // Always set the real Supabase user ID — never leave a stale demo ID
+    // (e.g. 'usr_lab_dir') behind from a previous demo or platform session.
+    S().userId        = userId;
+    S().userName       = name;
+    S().userRole        = role;
+    S().isDemoSession   = false;
+    // Explicitly set isPlatformAdmin both ways — switching between a real
+    // platform account and a real tenant account in the same browser
+    // session must not leak the previous session's admin flag.
+    S().isPlatformAdmin = !!isPlat;
 
     if(isPlat){
-      S().isPlatformAdmin = true;
       enterPlatformMode();
       toast('Welcome back, ' + name + '. Signed in as platform administrator.', {type:'success', duration:4000});
     } else if(tenantId){

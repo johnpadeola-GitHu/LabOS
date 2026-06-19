@@ -317,3 +317,129 @@ describe('Sign-in form field isolation (regression: duplicate ID bug)', () => {
     });
   });
 });
+
+describe('Sign-in session hygiene (regression: stale demo session leak)', () => {
+  let win, doc, S;
+
+  beforeEach(() => {
+    const booted = bootLabOS();
+    win = booted.win;
+    doc = win.document;
+    S = win.S;
+    win.LABOS_CONFIG = { supabaseUrl: 'https://test.supabase.co', supabaseAnonKey: 'test-key' };
+    win.renderOnboarding(1);
+  });
+
+  it('real tenant sign-in overwrites the default demo userId, not just userName', async () => {
+    // Confirm the demo seed really does start with the stale ID
+    expect(S().userId).toBe('usr_lab_dir');
+
+    doc.getElementById('onb-signin-email').value    = 'tenant@test.com';
+    doc.getElementById('onb-signin-password').value = 'tenant-password';
+
+    win.fetch = (url, opts) => {
+      if (url.includes('/auth/v1/token')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({
+            access_token: 'tok', refresh_token: 'ref',
+            user: { id: 'real-tenant-uuid-1234' }
+          })
+        });
+      }
+      if (url.includes('/rest/v1/app_users')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve([{
+            id: 'real-tenant-uuid-1234',
+            full_name: 'Real Tenant User',
+            role: 'TENANT_ADMIN',
+            tenant_id: 'real-tenant-id',
+            is_platform: false
+          }])
+        });
+      }
+      return Promise.resolve({ ok: false, json: () => Promise.resolve({}) });
+    };
+
+    await win.onbSignInDirect();
+
+    // The stale demo userId must be gone, replaced with the real account id
+    expect(S().userId).toBe('real-tenant-uuid-1234');
+    expect(S().userId).not.toBe('usr_lab_dir');
+  });
+
+  it('real tenant sign-in sets isPlatformAdmin to false even if the demo seed had it true', async () => {
+    // Confirm the demo seed really does start with isPlatformAdmin true
+    expect(S().isPlatformAdmin).toBe(true);
+
+    doc.getElementById('onb-signin-email').value    = 'tenant2@test.com';
+    doc.getElementById('onb-signin-password').value = 'tenant-password';
+
+    win.fetch = (url, opts) => {
+      if (url.includes('/auth/v1/token')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({
+            access_token: 'tok', refresh_token: 'ref',
+            user: { id: 'real-tenant-uuid-5678' }
+          })
+        });
+      }
+      if (url.includes('/rest/v1/app_users')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve([{
+            id: 'real-tenant-uuid-5678',
+            full_name: 'Another Tenant User',
+            role: 'TENANT_ADMIN',
+            tenant_id: 'another-tenant-id',
+            is_platform: false   // <- account is NOT a platform admin
+          }])
+        });
+      }
+      return Promise.resolve({ ok: false, json: () => Promise.resolve({}) });
+    };
+
+    await win.onbSignInDirect();
+
+    // Must reflect the real account's is_platform value, not the stale demo seed
+    expect(S().isPlatformAdmin).toBe(false);
+  });
+
+  it('real platform-admin sign-in still correctly sets isPlatformAdmin to true', async () => {
+    doc.getElementById('onb-signin-email').value    = 'platform@test.com';
+    doc.getElementById('onb-signin-password').value = 'platform-password';
+
+    win.fetch = (url, opts) => {
+      if (url.includes('/auth/v1/token')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({
+            access_token: 'tok', refresh_token: 'ref',
+            user: { id: 'real-platform-uuid-9999' }
+          })
+        });
+      }
+      if (url.includes('/rest/v1/app_users')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve([{
+            id: 'real-platform-uuid-9999',
+            full_name: 'Real Platform Admin',
+            role: 'PLATFORM_SUPER_ADMIN',
+            tenant_id: null,
+            is_platform: true
+          }])
+        });
+      }
+      return Promise.resolve({ ok: false, json: () => Promise.resolve({}) });
+    };
+
+    await win.onbSignInDirect();
+
+    expect(S().isPlatformAdmin).toBe(true);
+    expect(S().userId).toBe('real-platform-uuid-9999');
+    expect(S().mode).toBe('platform');
+  });
+});
