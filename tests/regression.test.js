@@ -390,3 +390,91 @@ describe('Clinical image upload (Supabase Storage)', () => {
     expect(result.length).toBe(1);
   });
 });
+
+describe('PDF generation — legal documents (client-side)', () => {
+  it('htmlToPdfLines extracts headings and paragraphs correctly', () => {
+    const { win } = bootLabOS();
+    const html = '<h1>Title</h1><h2>Section</h2><p>Some text</p><li>A bullet</li>';
+    const blocks = win.htmlToPdfLines(html);
+    expect(blocks.length).toBe(4);
+    expect(blocks[0]).toEqual({ text: 'Title', isHeading: true, isTitle: true, isBullet: false });
+    expect(blocks[1]).toEqual({ text: 'Section', isHeading: true, isTitle: false, isBullet: false });
+    expect(blocks[2]).toEqual({ text: 'Some text', isHeading: false, isTitle: false, isBullet: false });
+    expect(blocks[3]).toEqual({ text: 'A bullet', isHeading: false, isTitle: false, isBullet: true });
+  });
+
+  it('htmlToPdfLines skips empty blocks', () => {
+    const { win } = bootLabOS();
+    const html = '<h1></h1><p>   </p><p>Real content</p>';
+    const blocks = win.htmlToPdfLines(html);
+    expect(blocks.length).toBe(1);
+    expect(blocks[0].text).toBe('Real content');
+  });
+
+  it('downloadLegalPdf, downloadAllLegalPdf, and downloadReferralPdf are defined as functions', () => {
+    const { win } = bootLabOS();
+    expect(typeof win.downloadLegalPdf).toBe('function');
+    expect(typeof win.downloadAllLegalPdf).toBe('function');
+    expect(typeof win.downloadReferralPdf).toBe('function');
+  });
+});
+
+describe('PDF generation — patient report (server-side via Edge Function)', () => {
+  it('downloadReferralPdf shows demo-mode warning when no backend configured', async () => {
+    const { win } = bootLabOS();
+    win.LABOS_CONFIG = {};
+    let toastMsg = null, toastOpts = null;
+    win.toast = (msg, opts) => { toastMsg = msg; toastOpts = opts; };
+    await win.downloadReferralPdf('req-123');
+    expect(toastOpts.type).toBe('warn');
+  });
+
+  it('downloadReferralPdf calls the generate-report Edge Function with correct auth', async () => {
+    const { win } = bootLabOS();
+    win.LABOS_CONFIG = {
+      supabaseUrl: 'https://test.supabase.co',
+      supabaseAnonKey: 'anon-key',
+      accessToken: 'session-token'
+    };
+    let calledUrl = null, calledHeaders = null, calledBody = null;
+    win.fetch = (url, opts) => {
+      calledUrl = url; calledHeaders = opts.headers; calledBody = JSON.parse(opts.body);
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ ok: true, filename: 'report.pdf', base64: btoa('fake-pdf-content') })
+      });
+    };
+    // Stub the DOM download mechanics so this runs headlessly
+    win.URL = win.URL || {};
+    win.URL.createObjectURL = () => 'blob:fake';
+    win.URL.revokeObjectURL = () => {};
+    const fakeAnchor = { click: () => {}, href: '', download: '' };
+    const origCreate = win.document.createElement.bind(win.document);
+    win.document.createElement = (tag) => tag === 'a' ? fakeAnchor : origCreate(tag);
+    win.document.body.appendChild = () => {};
+    win.document.body.removeChild = () => {};
+
+    await win.downloadReferralPdf('req-456');
+
+    expect(calledUrl).toBe('https://test.supabase.co/functions/v1/generate-report');
+    expect(calledHeaders['Authorization']).toBe('Bearer session-token');
+    expect(calledBody.requestId).toBe('req-456');
+  });
+
+  it('downloadReferralPdf shows error toast when Edge Function returns failure', async () => {
+    const { win } = bootLabOS();
+    win.LABOS_CONFIG = {
+      supabaseUrl: 'https://test.supabase.co',
+      supabaseAnonKey: 'anon-key',
+      accessToken: 'session-token'
+    };
+    win.fetch = () => Promise.resolve({
+      ok: false,
+      json: () => Promise.resolve({ ok: false, error: 'request_not_found', message: 'Not found' })
+    });
+    let lastToastType = null;
+    win.toast = (msg, opts) => { lastToastType = opts && opts.type; };
+    await win.downloadReferralPdf('req-789');
+    expect(lastToastType).toBe('error');
+  });
+});

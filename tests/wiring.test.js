@@ -925,6 +925,8 @@ describe('Housekeeping — previously-stub buttons now functional', () => {
       'submitRealSignIn','onbSignInDirect',
       // clinical image upload (Supabase Storage)
       'uploadClinicalImage','getClinicalImageUrl','listClinicalImages','pickAndUploadImage',
+      // PDF generation
+      'loadJsPdf','htmlToPdfLines','downloadLegalPdf','downloadAllLegalPdf','downloadReferralPdf',
       // gateway parsers + live test
       'runLiveParseTest','injectASTMSample','injectHL7Sample',
       // gateway modal handlers

@@ -10812,7 +10812,7 @@ function renderLegal(root){
         <div class="page-subtitle">Privacy policy, end-user license agreement, and intellectual property policy</div>
       </div>
       <div class="actions">
-        <button class="btn" onclick="toast('PDF generation is handled by the production backend. Download will be available once labos-api is connected.', {type:'info', title:'PDF download', duration:4000})">Download all as PDF</button>
+        <button class="btn" onclick="downloadAllLegalPdf()">Download all as PDF</button>
       </div>
     </div>
 
@@ -10898,7 +10898,7 @@ function legalPrivacyHTML(){
 
     <div class="legal-actions">
       <button class="btn" onclick="recordLegalAcceptance('privacy')">I acknowledge this policy</button>
-      <button class="btn" onclick="toast('PDF generation is handled by the production backend. Download will be available once labos-api is connected.', {type:'info', title:'PDF download', duration:4000})">Download as PDF</button>
+      <button class="btn" onclick="downloadLegalPdf('Privacy-Policy', legalPrivacyHTML(), 'Privacy Policy')">Download as PDF</button>
       <button class="btn" onclick="setLegalTab('eula')">Next: EULA →</button>
     </div>
   </div>`;
@@ -10959,7 +10959,7 @@ function legalEulaHTML(){
 
     <div class="legal-actions">
       <button class="btn" onclick="recordLegalAcceptance('eula')">I accept this EULA</button>
-      <button class="btn" onclick="toast('PDF generation is handled by the production backend. Download will be available once labos-api is connected.', {type:'info', title:'PDF download', duration:4000})">Download as PDF</button>
+      <button class="btn" onclick="downloadLegalPdf('EULA', legalEulaHTML(), 'End User License Agreement')">Download as PDF</button>
       <button class="btn" onclick="setLegalTab('ip')">Next: IP Policy →</button>
     </div>
   </div>`;
@@ -11015,7 +11015,7 @@ function legalIpHTML(){
 
     <div class="legal-actions">
       <button class="btn" onclick="recordLegalAcceptance('ip')">I accept this IP Policy</button>
-      <button class="btn" onclick="toast('PDF generation is handled by the production backend. Download will be available once labos-api is connected.', {type:'info', title:'PDF download', duration:4000})">Download as PDF</button>
+      <button class="btn" onclick="downloadLegalPdf('IP-Policy', legalIpHTML(), 'Intellectual Property Policy')">Download as PDF</button>
       <button class="btn" onclick="setLegalTab('privacy')">Back to Privacy Policy</button>
     </div>
   </div>`;
@@ -16880,8 +16880,52 @@ function filterReferralResults(query){
   });
 }
 
-function downloadReferralPdf(requestId){
-  toast('PDF report generation requires the production LabOS API. The report will be emailed to you in the production environment.', {type:'info', title:'PDF report', duration:5000});
+async function downloadReferralPdf(requestId){
+  const cfg = window.LABOS_CONFIG || {};
+  if(!cfg.supabaseUrl || !cfg.accessToken){
+    toast('PDF reports require a connected backend and signed-in session.', {type:'warn', title:'Demo mode', duration:4000});
+    return;
+  }
+
+  toast('Generating report…', {type:'info', duration:2500});
+
+  try {
+    const res = await fetch(`${cfg.supabaseUrl}/functions/v1/generate-report`, {
+      method: 'POST',
+      headers: {
+        'Content-Type':  'application/json',
+        'Authorization': 'Bearer ' + cfg.accessToken,
+        'apikey':        cfg.supabaseAnonKey
+      },
+      body: JSON.stringify({ requestId })
+    });
+
+    const data = await res.json();
+    if(!res.ok || !data.ok){
+      toast(data.message || 'Could not generate report.', {type:'error', title:'PDF generation failed'});
+      return;
+    }
+
+    // Decode base64 PDF and trigger download
+    const byteChars = atob(data.base64);
+    const byteNumbers = new Array(byteChars.length);
+    for(let i = 0; i < byteChars.length; i++) byteNumbers[i] = byteChars.charCodeAt(i);
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: 'application/pdf' });
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = data.filename || 'LabOS-Report.pdf';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    toast('Report downloaded.', {type:'success', title:'PDF ready'});
+  } catch(err){
+    toast('Could not generate report. Check your connection.', {type:'error'});
+  }
 }
 
 function openTenantSwitcher(){
@@ -18632,7 +18676,166 @@ function onbReferralSignIn(){
 
 // Direct sign-in using Supabase Auth REST API — no SDK, no modules.
 // Works the moment the page loads because it is just a fetch() call.
-// ── Clinical image upload (Supabase Storage) ──────────────────────────────────
+// ── PDF generation: legal documents (client-side, jsPDF) ──────────────────────
+// Legal docs are static HTML with no patient data, so generating them in the
+// browser is safe and avoids any backend dependency. jsPDF loads from CDN
+// only when actually needed — most sessions never touch this code path.
+
+let _jsPdfLoadPromise = null;
+function loadJsPdf(){
+  if(window.jspdf && window.jspdf.jsPDF) return Promise.resolve(window.jspdf.jsPDF);
+  if(_jsPdfLoadPromise) return _jsPdfLoadPromise;
+
+  _jsPdfLoadPromise = new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+    script.onload = () => {
+      if(window.jspdf && window.jspdf.jsPDF) resolve(window.jspdf.jsPDF);
+      else reject(new Error('jsPDF loaded but jsPDF class not found'));
+    };
+    script.onerror = () => reject(new Error('Failed to load PDF library'));
+    document.head.appendChild(script);
+  });
+  return _jsPdfLoadPromise;
+}
+
+// Strip HTML tags to get plain text, preserving paragraph breaks for headings
+function htmlToPdfLines(html){
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  const blocks = [];
+  div.querySelectorAll('h1,h2,h3,p,li,div.effective,div.note').forEach(el => {
+    const tag = el.tagName.toLowerCase();
+    const text = el.textContent.trim();
+    if(!text) return;
+    blocks.push({
+      text,
+      isHeading: tag === 'h1' || tag === 'h2' || tag === 'h3',
+      isTitle:   tag === 'h1',
+      isBullet:  tag === 'li'
+    });
+  });
+  return blocks;
+}
+
+async function downloadLegalPdf(docType, html, title){
+  try {
+    toast('Generating PDF…', {type:'info', duration:2000});
+    const jsPDF = await loadJsPdf();
+    const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+    const pageWidth  = doc.internal.pageSize.getWidth();
+    const margin     = 56;
+    const maxWidth   = pageWidth - margin * 2;
+    let y = 64;
+
+    // Header
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(74, 127, 193);
+    doc.text('LabOS by AgoroX Technologies', margin, 36);
+    doc.setDrawColor(221, 228, 238);
+    doc.line(margin, 44, pageWidth - margin, 44);
+
+    const blocks = htmlToPdfLines(html);
+    for(const block of blocks){
+      if(y > 760){ doc.addPage(); y = 64; }
+
+      if(block.isTitle){
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(18);
+        doc.setTextColor(47, 74, 109);
+        const lines = doc.splitTextToSize(block.text, maxWidth);
+        doc.text(lines, margin, y);
+        y += lines.length * 22 + 10;
+      } else if(block.isHeading){
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(12);
+        doc.setTextColor(74, 127, 193);
+        const lines = doc.splitTextToSize(block.text, maxWidth);
+        doc.text(lines, margin, y);
+        y += lines.length * 16 + 8;
+      } else {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        doc.setTextColor(26, 46, 72);
+        const prefix = block.isBullet ? '•  ' : '';
+        const lines = doc.splitTextToSize(prefix + block.text, maxWidth - (block.isBullet ? 14 : 0));
+        doc.text(lines, margin + (block.isBullet ? 14 : 0), y);
+        y += lines.length * 13 + 6;
+      }
+    }
+
+    // Footer on every page
+    const pageCount = doc.internal.getNumberOfPages();
+    for(let i = 1; i <= pageCount; i++){
+      doc.setPage(i);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(155, 168, 184);
+      doc.text(`AgoroX Technologies · support@agorox.africa · Page ${i} of ${pageCount}`, margin, 812);
+    }
+
+    doc.save(`LabOS-${docType}-${new Date().toISOString().slice(0,10)}.pdf`);
+    toast(`${title} downloaded.`, {type:'success', title:'PDF ready'});
+  } catch(err){
+    toast('Could not generate PDF. Check your internet connection.', {type:'error', title:'PDF generation failed'});
+  }
+}
+
+function downloadAllLegalPdf(){
+  toast('Generating combined PDF…', {type:'info', duration:2500});
+  loadJsPdf().then(async (jsPDF) => {
+    const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+    const sections = [
+      { html: legalPrivacyHTML(), title: 'Privacy Policy' },
+      { html: legalEulaHTML(),    title: 'End User License Agreement' },
+      { html: legalIpHTML(),      title: 'Intellectual Property Policy' }
+    ];
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 56;
+    const maxWidth = pageWidth - margin * 2;
+
+    sections.forEach((section, idx) => {
+      if(idx > 0) doc.addPage();
+      let y = 64;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.setTextColor(74, 127, 193);
+      doc.text('LabOS by AgoroX Technologies', margin, 36);
+      doc.setDrawColor(221, 228, 238);
+      doc.line(margin, 44, pageWidth - margin, 44);
+
+      const blocks = htmlToPdfLines(section.html);
+      for(const block of blocks){
+        if(y > 760){ doc.addPage(); y = 64; }
+        if(block.isTitle){
+          doc.setFont('helvetica', 'bold'); doc.setFontSize(18);
+          doc.setTextColor(47, 74, 109);
+          const lines = doc.splitTextToSize(block.text, maxWidth);
+          doc.text(lines, margin, y); y += lines.length * 22 + 10;
+        } else if(block.isHeading){
+          doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
+          doc.setTextColor(74, 127, 193);
+          const lines = doc.splitTextToSize(block.text, maxWidth);
+          doc.text(lines, margin, y); y += lines.length * 16 + 8;
+        } else {
+          doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
+          doc.setTextColor(26, 46, 72);
+          const prefix = block.isBullet ? '•  ' : '';
+          const lines = doc.splitTextToSize(prefix + block.text, maxWidth - (block.isBullet ? 14 : 0));
+          doc.text(lines, margin + (block.isBullet ? 14 : 0), y); y += lines.length * 13 + 6;
+        }
+      }
+    });
+
+    doc.save(`LabOS-Legal-Agreements-${new Date().toISOString().slice(0,10)}.pdf`);
+    toast('All legal agreements downloaded.', {type:'success', title:'PDF ready'});
+  }).catch(() => {
+    toast('Could not generate PDF. Check your internet connection.', {type:'error'});
+  });
+}
+
+
 // Uses direct fetch() against the Storage REST API — consistent with our
 // other Supabase calls, avoids any SDK loading/timing issues.
 
