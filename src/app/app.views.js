@@ -16414,7 +16414,7 @@ function currentSub(){
   return APP_STATE.subscriptions.find(s=>s.tenantId===S().activeTenantId);
 }
 function tenantCentres(tid){return APP_STATE.centres.filter(c=>c.tenantId===(tid||S().activeTenantId))}
-function isAdmin(){return ['TENANT_ADMIN','LAB_DIRECTOR'].includes(S().userRole)}
+function isAdmin(){return ['TENANT_ADMIN','LAB_DIRECTOR','PLATFORM_SUPER_ADMIN'].includes(S().userRole)}
 function moduleEnabled(mod){
   const p = currentPlan(); if(!p) return true;
   return p.entitlements.modules[mod] !== false;

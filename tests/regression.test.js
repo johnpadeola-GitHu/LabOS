@@ -274,3 +274,27 @@ describe('Section icons', () => {
     expect(g0.classList.contains('collapsed')).toBe(!before);
   });
 });
+
+describe('Platform super-admin sees full tenant admin nav when browsing a tenant', () => {
+  it('isAdmin() returns true for PLATFORM_SUPER_ADMIN', () => {
+    const { win, APP_STATE } = bootLabOS();
+    APP_STATE.session.userRole = 'PLATFORM_SUPER_ADMIN';
+    expect(win.isAdmin()).toBe(true);
+  });
+
+  it('isAdmin() still returns true for TENANT_ADMIN and LAB_DIRECTOR (no regression)', () => {
+    const { win, APP_STATE } = bootLabOS();
+    APP_STATE.session.userRole = 'TENANT_ADMIN';
+    expect(win.isAdmin()).toBe(true);
+    APP_STATE.session.userRole = 'LAB_DIRECTOR';
+    expect(win.isAdmin()).toBe(true);
+  });
+
+  it('isAdmin() returns false for non-admin clinical roles', () => {
+    const { win, APP_STATE } = bootLabOS();
+    APP_STATE.session.userRole = 'LAB_SCIENTIST';
+    expect(win.isAdmin()).toBe(false);
+    APP_STATE.session.userRole = 'PHLEBOTOMIST';
+    expect(win.isAdmin()).toBe(false);
+  });
+});
