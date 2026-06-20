@@ -672,7 +672,7 @@
     .footer-links a:hover{background:initial;color:initial}
     .btn.primary:hover{background:var(--ink);color:var(--white)}
     .nav-item.active:hover{background:var(--ink);color:var(--white)}
-    .close-btn:hover,.modal-close:hover{background:#9A1F1F;color:white}
+    .close-btn:hover,.modal-close:hover{background:var(--danger-bg);color:var(--danger-ink)}
   }
 
   /* Reduce motion when the user prefers */
@@ -727,8 +727,8 @@
   textarea.input{resize:vertical;min-height:60px;line-height:1.5}
   .modal-backdrop{position:fixed;inset:0;background:rgba(47,74,109,0.55);z-index:100}
   .modal-backdrop + .modal{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:101;max-height:90vh;overflow:auto}
-  .modal-close{background:#9A1F1F;border:1px solid #9A1F1F;width:28px;height:28px;border-radius:var(--radius);font-size:18px;color:#fff;cursor:pointer;line-height:1;padding:0;display:inline-flex;align-items:center;justify-content:center;font-weight:600;transition:background 0.15s,border-color 0.15s}
-  .modal-close:hover{background:#7A1414;border-color:#7A1414;color:#fff}
+  .modal-close{background:var(--danger-bg);border:1px solid #F0C0C0;width:28px;height:28px;border-radius:var(--radius);font-size:18px;color:var(--danger-ink);cursor:pointer;line-height:1;padding:0;display:inline-flex;align-items:center;justify-content:center;font-weight:600;transition:background 0.15s,border-color 0.15s}
+  .modal-close:hover{background:#F8D5D5;border-color:#E8AAAA;color:var(--danger-ink)}
   .tabs.standalone, .tabs-standalone{display:flex;gap:0;border-bottom:1px solid var(--line);background:transparent;padding:0;margin:0;border-radius:0}
 
   /* Tenant pill (topbar) */

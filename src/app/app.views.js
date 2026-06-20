@@ -3882,7 +3882,7 @@ function openHistopathCase(id){  const c = APP_STATE.histopathCases.find(x=>x.id
             <div class="image-thumb"><div class="thumb-placeholder">🔬</div><div class="thumb-label">H&E × 100</div></div>
             <div class="image-thumb"><div class="thumb-placeholder">🔬</div><div class="thumb-label">H&E × 400</div></div>
             ${c.ihcOrdered?'<div class="image-thumb"><div class="thumb-placeholder">🔬</div><div class="thumb-label">IHC composite</div></div>':''}
-            <div class="image-thumb add-thumb"><div class="thumb-placeholder">+</div><div class="thumb-label">Add</div></div>
+            <div class="image-thumb add-thumb" onclick="pickAndUploadImage({caseId:'${esc(c.id)}', category:'microscopy', label:'Microscopy image', onSuccess:()=>navigate(APP_STATE.currentRoute)})"><div class="thumb-placeholder">+</div><div class="thumb-label">Add</div></div>
           </div>
         </div>
       </div>
@@ -4085,7 +4085,7 @@ function openCytologyCase(c, root){
             <div class="image-thumb"><div class="thumb-placeholder">🔬</div><div class="thumb-label">× 100</div></div>
             <div class="image-thumb"><div class="thumb-placeholder">🔬</div><div class="thumb-label">× 400</div></div>
             <div class="image-thumb"><div class="thumb-placeholder">🔬</div><div class="thumb-label">Cell block</div></div>
-            <div class="image-thumb add-thumb"><div class="thumb-placeholder">+</div><div class="thumb-label">Add</div></div>
+            <div class="image-thumb add-thumb" onclick="pickAndUploadImage({category:'cytology', label:'Cytology image', onSuccess:()=>navigate(APP_STATE.currentRoute)})"><div class="thumb-placeholder">+</div><div class="thumb-label">Add</div></div>
           </div>
         </div>
       </div>
@@ -8313,7 +8313,7 @@ const SECTION_ICONS = {
   devices: '<rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>',
 
   // Instrument Gateway group icon — signal tower
-  gateway: '<line x1="12" y1="22" x2="12" y2="11"/><path d="M6 11a6 6 0 0 1 12 0"/><path d="M3 8a9 9 0 0 1 18 0"/><circle cx="12" cy="22" r="2" fill="currentColor" stroke="none"/>',
+  gateway: '<rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/><line x1="10" y1="6" x2="18" y2="6"/><line x1="10" y1="18" x2="18" y2="18"/>',
   // Analyzers — CPU chip
   analyzers: '<rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/>',
   // Test mapping — code/transform arrows
@@ -16392,8 +16392,8 @@ const NAV_GROUPS = {
       {route:'platformTenants',       label:'Tenants',           icon:'<path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/>'},
       {route:'platformSubscriptions', label:'Subscriptions',     icon:'<path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>'},
       {route:'platformRevenue',       label:'Revenue analytics', icon:'<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>'},
-      {route:'platformPlans',         label:'Pricing plans',     icon:'<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>'},
-      {route:'platformModules',       label:'Module map',        icon:'<rect x=\"3\" y=\"3\" width=\"7\" height=\"7\"/><rect x=\"14\" y=\"3\" width=\"7\" height=\"7\"/><rect x=\"14\" y=\"14\" width=\"7\" height=\"7\"/><rect x=\"3\" y=\"14\" width=\"7\" height=\"7\"/>'}
+      {route:'platformPlans',         label:'Pricing plans',     icon:'<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>'},
+      {route:'platformModules',       label:'Module map',        icon:'<path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>'}
     ]},
     {title:'Support', items:[
       {route:'platformTickets',       label:'Support tickets',   icon:'<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>', badge:'2'},
@@ -16683,9 +16683,10 @@ function renderShell(){
       return true;
     });
     if(items.length === 0) return '';
-    // Core Services is always visible and cannot be collapsed — it's the
-    // shared foundation domain.
-    const locked = (g.title === 'Core Services');
+    // These groups are always visible and cannot be collapsed — Core Services
+    // is the shared tenant foundation; Platform and Support are the entire
+    // platform-mode nav, so their leaves should always be visible.
+    const locked = (g.title === 'Core Services' || g.title === 'Platform' || g.title === 'Support');
     // Every group except Core Services starts collapsed and only opens when the
     // user explicitly clicks its arrow. We do NOT auto-expand the active route's
     // group — collapsed is the default until toggled open.

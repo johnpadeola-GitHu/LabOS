@@ -220,27 +220,40 @@ describe('Tenant provisioning (issuing activation codes)', () => {
 describe('Modal close button styling', () => {
   const css = readFileSync(resolve(root, 'src/styles/labos.css'), 'utf8');
 
-  // Both classes are used for the upper-right modal X (modal-close: 25 modals,
-  // close-btn: 42 modals). Both must be red fill with a white glyph.
+  // Both classes are used for the upper-right modal X (modal-close: 37 modals,
+  // close-btn: 42 modals). They must render IDENTICALLY — softer danger-bg
+  // tint, not a solid red fill — so every modal close button looks the same
+  // app-wide regardless of which class a given modal happens to use.
   function baseRule(selector) {
     const re = new RegExp(`\\.${selector}\\{([^}]*)\\}`, 'g');
     const rules = [...css.matchAll(re)].map((m) => m[1]);
     return rules.find((r) => /background:/.test(r));
   }
 
-  it('renders .modal-close as red fill with white glyph', () => {
+  it('renders .modal-close with the softer danger-bg style (not solid red fill)', () => {
     const rule = baseRule('modal-close');
     expect(rule).toBeTruthy();
-    expect(rule).toMatch(/background:\s*#9A1F1F/i);
-    expect(rule).toMatch(/color:\s*#fff/i);
+    expect(rule).toMatch(/background:\s*var\(--danger-bg\)/i);
+    expect(rule).toMatch(/color:\s*var\(--danger-ink\)/i);
+    // Must NOT be the old harsh solid-red fill
+    expect(rule).not.toMatch(/#9A1F1F/i);
   });
 
-  it('renders .close-btn with danger styling', () => {
+  it('renders .close-btn with the softer danger-bg style', () => {
     const rule = baseRule('close-btn');
     expect(rule).toBeTruthy();
-    // Softer danger style — background is danger-bg tint, not solid red fill
-    expect(rule).toMatch(/border-radius/i);
-    expect(rule).toMatch(/cursor:\s*pointer/i);
+    expect(rule).toMatch(/background:\s*var\(--danger-bg\)/i);
+    expect(rule).toMatch(/color:\s*var\(--danger-ink\)/i);
+  });
+
+  it('.modal-close and .close-btn render identically (same background, color, border-radius)', () => {
+    const modalCloseRule = baseRule('modal-close');
+    const closeBtnRule = baseRule('close-btn');
+    const extractProp = (rule, prop) => (rule.match(new RegExp(`${prop}:\\s*([^;]+)`)) || [])[1];
+
+    expect(extractProp(modalCloseRule, 'background')).toBe(extractProp(closeBtnRule, 'background'));
+    expect(extractProp(modalCloseRule, 'color')).toBe(extractProp(closeBtnRule, 'color'));
+    expect(extractProp(modalCloseRule, 'border-radius')).toBe(extractProp(closeBtnRule, 'border-radius'));
   });
 });
 
