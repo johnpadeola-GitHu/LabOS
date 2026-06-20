@@ -221,29 +221,27 @@ describe('Modal close button styling', () => {
   const css = readFileSync(resolve(root, 'src/styles/labos.css'), 'utf8');
 
   // Both classes are used for the upper-right modal X (modal-close: 37 modals,
-  // close-btn: 42 modals). They must render IDENTICALLY — softer danger-bg
-  // tint, not a solid red fill — so every modal close button looks the same
-  // app-wide regardless of which class a given modal happens to use.
+  // close-btn: 42 modals). They must render IDENTICALLY — solid dark red fill
+  // with a white glyph — so every modal close button looks the same app-wide
+  // regardless of which class a given modal happens to use.
   function baseRule(selector) {
     const re = new RegExp(`\\.${selector}\\{([^}]*)\\}`, 'g');
     const rules = [...css.matchAll(re)].map((m) => m[1]);
     return rules.find((r) => /background:/.test(r));
   }
 
-  it('renders .modal-close with the softer danger-bg style (not solid red fill)', () => {
+  it('renders .modal-close as solid red fill with white glyph', () => {
     const rule = baseRule('modal-close');
     expect(rule).toBeTruthy();
-    expect(rule).toMatch(/background:\s*var\(--danger-bg\)/i);
-    expect(rule).toMatch(/color:\s*var\(--danger-ink\)/i);
-    // Must NOT be the old harsh solid-red fill
-    expect(rule).not.toMatch(/#9A1F1F/i);
+    expect(rule).toMatch(/background:\s*#9A1F1F/i);
+    expect(rule).toMatch(/color:\s*#fff/i);
   });
 
-  it('renders .close-btn with the softer danger-bg style', () => {
+  it('renders .close-btn as solid red fill with white glyph', () => {
     const rule = baseRule('close-btn');
     expect(rule).toBeTruthy();
-    expect(rule).toMatch(/background:\s*var\(--danger-bg\)/i);
-    expect(rule).toMatch(/color:\s*var\(--danger-ink\)/i);
+    expect(rule).toMatch(/background:\s*#9A1F1F/i);
+    expect(rule).toMatch(/color:\s*#fff/i);
   });
 
   it('.modal-close and .close-btn render identically (same background, color, border-radius)', () => {
